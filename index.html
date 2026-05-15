@@ -276,13 +276,19 @@ function App(){
   useEffect(()=>{
     const init = () => {
       const setters = {dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces};
-      const unsubs = KEYS.map(k => fbListen(k, v => setters[k](v)));
-      setReady(true);
-      return ()=>unsubs.forEach(u=>u());
+      let loaded = {};
+      const unsubs = KEYS.map(k => fbListen(k, v => {
+        setters[k](v);
+        loaded[k] = true;
+        if (KEYS.every(key => loaded[key])) setReady(true);
+      }));
+      // If some keys don't exist in DB yet, still mark ready after 3s
+      const timeout = setTimeout(()=>setReady(true), 3000);
+      return ()=>{ unsubs.forEach(u=>u()); clearTimeout(timeout); };
     };
-    if (window._fbReady) return init();
-    const h = () => { cleanup = init(); };
+    if (window._fbReady) { const cleanup = init(); return cleanup; }
     let cleanup = null;
+    const h = () => { cleanup = init(); };
     window.addEventListener("firebase-ready", h);
     return ()=>{ window.removeEventListener("firebase-ready",h); cleanup&&cleanup(); };
   },[]);
