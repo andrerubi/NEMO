@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="it">
 <head>
 <meta charset="UTF-8"/>
@@ -11,6 +10,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyBr2Ai-vl4NxKunbQH0Q3Gr7nAbkhEuOjU",
+    authDomain: "nemo-app-2ad96.firebaseapp.com",
+    projectId: "nemo-app-2ad96",
+    storageBucket: "nemo-app-2ad96.firebasestorage.app",
+    messagingSenderId: "917177734551",
+    appId: "1:917177734551:web:8d577a81886fdceceba0d2"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window._db = db;
+  window._fbReady = true;
+  window._setDoc = setDoc;
+  window._doc = doc;
+  window._onSnapshot = onSnapshot;
+  window._collection = collection;
+  window.dispatchEvent(new Event("firebase-ready"));
+</script>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   body{margin:0;padding:0;background:linear-gradient(160deg,#d6eeff 0%,#eaf5ff 40%,#f4f9ff 100%);min-height:100vh;font-family:system-ui,-apple-system,sans-serif;}
@@ -27,6 +47,24 @@
 <script type="text/babel">
 // Auth gate
 const AUTH_CODE = "1512";
+
+// Firebase helpers
+const KEYS = ["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places"];
+
+async function fbSave(key, value) {
+  try {
+    if (!window._db) return;
+    await window._setDoc(window._doc(window._db, "nemo", key), { value: JSON.stringify(value) });
+  } catch(e) { console.warn("fbSave error", e); }
+}
+
+function fbListen(key, cb) {
+  if (!window._db) return ()=>{};
+  const unsub = window._onSnapshot(window._doc(window._db, "nemo", key), snap => {
+    if (snap.exists()) { try { cb(JSON.parse(snap.data().value)); } catch(e){} }
+  });
+  return unsub;
+}
 
 const {useState,useEffect,useRef}=React;
 
@@ -216,34 +254,51 @@ function App(){
 
   const [section,setSection]=useState("home");
   const [menuOpen,setMenuOpen]=useState(false);
-  const [dog,setDog]=useState(()=>load("dog")||{name:"",breed:"",dob:"",chip:""});
-  const [dogPhoto,setDogPhoto]=useState(()=>load("dogPhoto")||null);
-  const [meds,setMeds]=useState(()=>load("meds")||[]);
-  const [alones,setAlones]=useState(()=>load("alones")||[]);
-  const [weights,setWeights]=useState(()=>load("weights")||[]);
-  const [walks,setWalks]=useState(()=>load("walks")||[]);
-  const [photos,setPhotos]=useState(()=>load("photos")||[]);
-  const [vets,setVets]=useState(()=>load("vets")||[]);
-  const [symptoms,setSymptoms]=useState(()=>load("symptoms")||[]);
-  const [friends,setFriends]=useState(()=>load("friends")||[]);
-  const [places,setPlaces]=useState(()=>load("places")||[]);
+  const [dog,setDog]=useState({name:"",breed:"",dob:"",chip:""});
+  const [dogPhoto,setDogPhoto]=useState(null);
+  const [meds,setMeds]=useState([]);
+  const [alones,setAlones]=useState([]);
+  const [weights,setWeights]=useState([]);
+  const [walks,setWalks]=useState([]);
+  const [photos,setPhotos]=useState([]);
+  const [vets,setVets]=useState([]);
+  const [symptoms,setSymptoms]=useState([]);
+  const [friends,setFriends]=useState([]);
+  const [places,setPlaces]=useState([]);
+  const [ready,setReady]=useState(false);
   const [reminder,setReminder]=useState(null);
   const [form,setForm]=useState({});
   const [mapPending,setMapPending]=useState(null);
   const photoInputRef=useRef(null);
   const timerRef=useRef(null);
 
-  useEffect(()=>{save("dog",dog);},[dog]);
-  useEffect(()=>{save("dogPhoto",dogPhoto);},[dogPhoto]);
-  useEffect(()=>{save("meds",meds);},[meds]);
-  useEffect(()=>{save("alones",alones);},[alones]);
-  useEffect(()=>{save("weights",weights);},[weights]);
-  useEffect(()=>{save("walks",walks);},[walks]);
-  useEffect(()=>{save("photos",photos);},[photos]);
-  useEffect(()=>{save("vets",vets);},[vets]);
-  useEffect(()=>{save("symptoms",symptoms);},[symptoms]);
-  useEffect(()=>{save("friends",friends);},[friends]);
-  useEffect(()=>{save("places",places);},[places]);
+  // Wait for Firebase then subscribe to all keys
+  useEffect(()=>{
+    const init = () => {
+      const setters = {dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces};
+      const unsubs = KEYS.map(k => fbListen(k, v => setters[k](v)));
+      setReady(true);
+      return ()=>unsubs.forEach(u=>u());
+    };
+    if (window._fbReady) return init();
+    const h = () => { cleanup = init(); };
+    let cleanup = null;
+    window.addEventListener("firebase-ready", h);
+    return ()=>{ window.removeEventListener("firebase-ready",h); cleanup&&cleanup(); };
+  },[]);
+
+  // Save to Firebase on change (only after ready)
+  useEffect(()=>{ if(ready) fbSave("dog",dog); },[dog,ready]);
+  useEffect(()=>{ if(ready) fbSave("dogPhoto",dogPhoto); },[dogPhoto,ready]);
+  useEffect(()=>{ if(ready) fbSave("meds",meds); },[meds,ready]);
+  useEffect(()=>{ if(ready) fbSave("alones",alones); },[alones,ready]);
+  useEffect(()=>{ if(ready) fbSave("weights",weights); },[weights,ready]);
+  useEffect(()=>{ if(ready) fbSave("walks",walks); },[walks,ready]);
+  useEffect(()=>{ if(ready) fbSave("photos",photos); },[photos,ready]);
+  useEffect(()=>{ if(ready) fbSave("vets",vets); },[vets,ready]);
+  useEffect(()=>{ if(ready) fbSave("symptoms",symptoms); },[symptoms,ready]);
+  useEffect(()=>{ if(ready) fbSave("friends",friends); },[friends,ready]);
+  useEffect(()=>{ if(ready) fbSave("places",places); },[places,ready]);
 
   useEffect(()=>{
     const check=()=>{
