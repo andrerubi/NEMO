@@ -319,7 +319,25 @@ function App(){
   const addItem=(setter,item)=>{setter(p=>[{...item,id:Date.now()},...p]);setForm({});};
   const delItem=(setter,id)=>setter(p=>p.filter(x=>x.id!==id));
   const handleDogPhoto=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>setDogPhoto(ev.target.result);r.readAsDataURL(file);};
-  const handlePhotoUpload=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>f("photoData",ev.target.result);r.readAsDataURL(file);};
+  const handlePhotoUpload=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      img.onload=()=>{
+        const canvas=document.createElement("canvas");
+        const MAX=600;
+        let w=img.width,h=img.height;
+        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
+        else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+        canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        f("photoData",canvas.toDataURL("image/jpeg",0.7));
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
   const goTo=id=>{setSection(id);setMenuOpen(false);setForm({});setMapPending(null);};
 
   const weightChart=[...weights].reverse().slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5)}));
