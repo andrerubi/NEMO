@@ -154,8 +154,8 @@ function EditModal({item,fields,onSave,onClose,title}){
 }
 
 function App(){
-  const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("nemo_auth")==="1");
-  const handleLogin=()=>{sessionStorage.setItem("nemo_auth","1");setLoggedIn(true);};
+  const [loggedIn,setLoggedIn]=useState(true);
+  const handleLogin=()=>{setLoggedIn(true);};
   if(!loggedIn)return <Login onLogin={handleLogin}/>;
 
   const [section,setSection]=useState("home");
