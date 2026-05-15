@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Nemo"/>
+<title>Nemo 🐾</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{margin:0;padding:0;background:linear-gradient(160deg,#d6eeff 0%,#eaf5ff 40%,#f4f9ff 100%);min-height:100vh;font-family:system-ui,-apple-system,sans-serif;}
+  input,select,textarea,button{font-family:inherit;}
+  input[type=range]{width:100%;accent-color:#378ADD;}
+  input[type=checkbox]{accent-color:#378ADD;}
+  input[type=radio]{accent-color:#378ADD;}
+  ::-webkit-scrollbar{display:none;}
+  scrollbar-width:none;
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+// Auth gate
+const AUTH_CODE = "1512";
+
+const {useState,useEffect,useRef}=React;
+
+const SECTIONS=[
+  {id:"home",label:"Profilo"},
+  {id:"meds",label:"Farmaci"},
+  {id:"alone",label:"Solo a casa"},
+  {id:"weight",label:"Peso"},
+  {id:"walks",label:"Passeggiate"},
+  {id:"photos",label:"Diario foto"},
+  {id:"vet",label:"Veterinario"},
+  {id:"symptoms",label:"Sintomi"},
+  {id:"friends",label:"Amici"},
+  {id:"charts",label:"Grafici"},
+  {id:"settings",label:"Impostazioni profilo"},
+];
+
+const today=()=>new Date().toISOString().split("T")[0];
+const fmt=d=>d?new Date(d+"T00:00:00").toLocaleDateString("it-IT"):"";
+const B={bg:"#e8f4fd",bg2:"#dbeeff",border:"#b3d9f5",mid:"#378ADD",dark:"#185FA5",text:"#042C53"};
+
+const PAW_POSITIONS=[
+  {x:7,y:8,r:-20},{x:78,y:4,r:15},{x:52,y:22,r:-10},{x:18,y:40,r:25},
+  {x:88,y:38,r:-30},{x:38,y:58,r:10},{x:8,y:72,r:-15},{x:68,y:76,r:20},
+  {x:48,y:90,r:-5},{x:25,y:92,r:18},{x:90,y:88,r:-8},
+];
+
+function PawBg(){
+  return(
+    <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
+      <svg width="100%" height="100%" style={{position:"absolute",inset:0}}>
+        {PAW_POSITIONS.map((p,i)=>(
+          <g key={i} transform={`translate(${p.x}%, ${p.y}%) rotate(${p.r})`} opacity="0.07">
+            <ellipse cx="0" cy="0" rx="13" ry="10" fill={B.mid}/>
+            <circle cx="-12" cy="-13" r="6" fill={B.mid}/>
+            <circle cx="12" cy="-13" r="6" fill={B.mid}/>
+            <circle cx="-18" cy="-3" r="5" fill={B.mid}/>
+            <circle cx="18" cy="-3" r="5" fill={B.mid}/>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+const Card=({children,style})=>(
+  <div style={{background:"rgba(255,255,255,0.92)",border:`1px solid ${B.border}`,borderRadius:16,padding:"1rem 1.25rem",marginBottom:12,boxShadow:"0 2px 10px rgba(55,138,221,0.08)",...style}}>
+    {children}
+  </div>
+);
+const Input=({label,...props})=>(
+  <div style={{marginBottom:10}}>
+    {label&&<label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>{label}</label>}
+    <input style={{width:"100%",borderRadius:8,border:`1px solid ${B.border}`,padding:"7px 10px",fontSize:14,background:B.bg,color:"#222",outline:"none"}} {...props}/>
+  </div>
+);
+const Btn=({onClick,children,danger,small,accent})=>(
+  <button onClick={onClick} style={{fontSize:small?12:14,padding:small?"4px 10px":"8px 18px",background:danger?"#fee2e2":accent?B.mid:B.bg,color:danger?"#b91c1c":accent?"#fff":B.dark,border:`1px solid ${danger?"#fca5a5":accent?B.mid:B.border}`,borderRadius:8,cursor:"pointer",marginRight:6,marginBottom:4,fontWeight:500}}>{children}</button>
+);
+const Tag=({color,children})=>{
+  const c={success:{bg:"#dcfce7",text:"#166534",border:"#86efac"},warning:{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},danger:{bg:"#fee2e2",text:"#b91c1c",border:"#fca5a5"},info:{bg:B.bg,text:B.dark,border:B.border},secondary:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}}[color]||{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"};
+  return <span style={{fontSize:12,padding:"3px 10px",borderRadius:20,background:c.bg,color:c.text,border:`1px solid ${c.border}`,marginRight:4,display:"inline-block",marginBottom:2,fontWeight:500}}>{children}</span>;
+};
+const Empty=({msg})=>(
+  <div style={{textAlign:"center",padding:"2rem 0"}}>
+    <div style={{fontSize:32,marginBottom:8,opacity:0.4}}>🐾</div>
+    <p style={{color:"#94a3b8",fontSize:14}}>{msg}</p>
+  </div>
+);
+
+const load=k=>{try{const v=localStorage.getItem("nemo6_"+k);return v?JSON.parse(v):null;}catch{return null;}};
+const save=(k,v)=>{try{localStorage.setItem("nemo6_"+k,JSON.stringify(v));}catch{}};
+
+const moodEmoji={1:"😞",2:"😕",3:"😐",4:"🙂",5:"😄"};
+const moodLabel={1:"Molto basso",2:"Basso",3:"Normale",4:"Buono",5:"Eccellente"};
+const REACTION_OPTIONS=[{val:"simpatico",label:"😊 Simpatico",color:"success"},{val:"neutro",label:"😐 Neutro",color:"warning"},{val:"ostile",label:"😠 Ostile",color:"danger"}];
+const PLACE_EMOJIS=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","🌿","🏟️","🌊"];
+const ALONE_BEHAVIORS=[{id:"divano",label:"😴 Tranquillo sul divano"},{id:"giocava",label:"🎾 Giocava / masticava"},{id:"abbaiava",label:"🔊 Abbaiava"},{id:"ululava",label:"🌕 Ululava"},{id:"agitato",label:"😰 Agitato"}];
+
+function LineChart({data,color="#378ADD"}){
+  if(!data||data.length<2)return <Empty msg="Servono almeno 2 dati"/>;
+  const W=500,H=120,PAD=32;
+  const vals=data.map(d=>d.val);
+  const max=Math.max(...vals),min=Math.min(...vals),range=max-min||1;
+  const pts=data.map((d,i)=>({x:PAD+(i/(data.length-1))*(W-PAD*2),y:PAD+((max-d.val)/range)*(H-PAD*2),label:d.label}));
+  const path=pts.map((p,i)=>`${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
+  const area=`${path} L ${pts[pts.length-1].x} ${H-8} L ${pts[0].x} ${H-8} Z`;
+  return(
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>
+      {[0,1,2].map(i=>{const y=PAD+(i/2)*(H-PAD*1.5);return(<g key={i}><line x1={PAD} y1={y} x2={W-8} y2={y} stroke={B.border} strokeWidth="1"/><text x={PAD-4} y={y+4} fontSize="9" fill={B.dark} textAnchor="end">{(max-(i/2)*range).toFixed(1)}</text></g>);})}
+      <path d={area} fill={color} fillOpacity="0.12"/>
+      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+      {pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="5" fill="#fff" stroke={color} strokeWidth="2"/><text x={p.x} y={H} fontSize="9" fill={B.dark} textAnchor="middle">{p.label}</text></g>)}
+    </svg>
+  );
+}
+function BarChart({data,color="#378ADD"}){
+  if(!data||data.length===0)return <Empty msg="Nessun dato"/>;
+  const W=500,H=110,PAD=28;
+  const max=Math.max(...data.map(d=>d.val),1);
+  const bw=Math.min(38,(W-PAD*2)/data.length-6);
+  return(
+    <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>
+      {data.map((d,i)=>{const bh=((d.val/max)*(H-PAD-10));const x=PAD+i*((W-PAD*2)/data.length)+((W-PAD*2)/data.length-bw)/2;const y=H-PAD-bh;return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="4" fill={color} fillOpacity="0.7"/><text x={x+bw/2} y={y-3} fontSize="9" fill={B.dark} textAnchor="middle">{d.val}</text><text x={x+bw/2} y={H-2} fontSize="9" fill={B.dark} textAnchor="middle">{d.label}</text></g>);})}
+    </svg>
+  );
+}
+function Trend({data}){
+  if(!data||data.length<2)return null;
+  const diff=data[data.length-1].val-data[data.length-2].val;
+  if(diff===0)return <Tag color="secondary">= stabile</Tag>;
+  return <Tag color={diff>0?"success":"danger"}>{diff>0?"↑ miglioramento":"↓ peggioramento"}</Tag>;
+}
+
+function WalkMap({places,onAddPlace}){
+  const mapRef=useRef(null),leafletRef=useRef(null),markersRef=useRef([]);
+  const [mapReady,setMapReady]=useState(false),[clicking,setClicking]=useState(false);
+  useEffect(()=>{
+    if(mapRef.current&&!leafletRef.current){
+      const link=document.createElement("link");link.rel="stylesheet";link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";document.head.appendChild(link);
+      const s=document.createElement("script");s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload=()=>{setTimeout(()=>{
+        const L=window.L,map=L.map(mapRef.current).setView([41.9,12.5],5);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map);
+        leafletRef.current=map;setMapReady(true);
+        if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],14));
+      },300);};
+      document.head.appendChild(s);
+    }
+  },[]);
+  useEffect(()=>{
+    if(!mapReady||!leafletRef.current)return;
+    const L=window.L,map=leafletRef.current;
+    markersRef.current.forEach(m=>m.remove());markersRef.current=[];
+    places.forEach(p=>{
+      const icon=L.divIcon({className:"",html:`<div style="background:${B.mid};color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2)">${p.emoji||"📍"}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+      markersRef.current.push(L.marker([p.lat,p.lng],{icon}).addTo(map).bindPopup(`<b>${p.name}</b>${p.notes?"<br>"+p.notes:""}`));
+    });
+  },[places,mapReady]);
+  useEffect(()=>{
+    if(!mapReady||!leafletRef.current)return;
+    const map=leafletRef.current;
+    const h=e=>{if(clicking)onAddPlace&&onAddPlace(e.latlng.lat,e.latlng.lng);};
+    map.on("click",h);return()=>map.off("click",h);
+  },[mapReady,clicking,onAddPlace]);
+  return(
+    <div>
+      <div ref={mapRef} style={{width:"100%",height:240,borderRadius:12,overflow:"hidden",border:`1px solid ${B.border}`}}/>
+      <div style={{marginTop:8}}><Btn small onClick={()=>setClicking(c=>!c)}>{clicking?"✓ Clicca sulla mappa...":"📍 Aggiungi luogo"}</Btn></div>
+    </div>
+  );
+}
+
+function Login({onLogin}){
+  const [p,setP]=useState(""),[err,setErr]=useState(false);
+  const submit=()=>{
+    if(p===AUTH_CODE){onLogin();}
+    else{setErr(true);setTimeout(()=>setErr(false),2000);}
+  };
+  return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <PawBg/>
+      <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:320}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:64,marginBottom:8}}>🐾</div>
+          <p style={{fontWeight:800,fontSize:26,color:B.text,margin:"0 0 4px"}}>Nemo</p>
+          <p style={{fontSize:14,color:B.dark,margin:0}}>Diario di salute</p>
+        </div>
+        <Card>
+          <div style={{marginBottom:20}}>
+            <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Codice di accesso</label>
+            <input value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} type="password" placeholder="••••" maxLength={4} style={{width:"100%",boxSizing:"border-box",borderRadius:8,border:`1px solid ${err?"#fca5a5":B.border}`,padding:"9px 12px",fontSize:22,background:B.bg,outline:"none",textAlign:"center",letterSpacing:8}}/>
+          </div>
+          {err&&<p style={{color:"#b91c1c",fontSize:13,textAlign:"center",margin:"-12px 0 12px"}}>Codice non corretto</p>}
+          <button onClick={submit} style={{width:"100%",padding:"11px",background:`linear-gradient(135deg,${B.mid},${B.dark})`,color:"white",border:"none",borderRadius:10,fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 14px rgba(55,138,221,0.35)"}}>Accedi</button>
+        </Card>
+        <p style={{textAlign:"center",fontSize:12,color:B.dark,marginTop:16,opacity:0.6}}>Accesso privato — solo su invito</p>
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const [loggedIn,setLoggedIn]=useState(()=>sessionStorage.getItem("nemo_auth")==="1");
+  const handleLogin=()=>{sessionStorage.setItem("nemo_auth","1");setLoggedIn(true);};
+  if(!loggedIn)return <Login onLogin={handleLogin}/>;
+
+  const [section,setSection]=useState("home");
+  const [menuOpen,setMenuOpen]=useState(false);
+  const [dog,setDog]=useState(()=>load("dog")||{name:"",breed:"",dob:"",chip:""});
+  const [dogPhoto,setDogPhoto]=useState(()=>load("dogPhoto")||null);
+  const [meds,setMeds]=useState(()=>load("meds")||[]);
+  const [alones,setAlones]=useState(()=>load("alones")||[]);
+  const [weights,setWeights]=useState(()=>load("weights")||[]);
+  const [walks,setWalks]=useState(()=>load("walks")||[]);
+  const [photos,setPhotos]=useState(()=>load("photos")||[]);
+  const [vets,setVets]=useState(()=>load("vets")||[]);
+  const [symptoms,setSymptoms]=useState(()=>load("symptoms")||[]);
+  const [friends,setFriends]=useState(()=>load("friends")||[]);
+  const [places,setPlaces]=useState(()=>load("places")||[]);
+  const [reminder,setReminder]=useState(null);
+  const [form,setForm]=useState({});
+  const [mapPending,setMapPending]=useState(null);
+  const photoInputRef=useRef(null);
+  const timerRef=useRef(null);
+
+  useEffect(()=>{save("dog",dog);},[dog]);
+  useEffect(()=>{save("dogPhoto",dogPhoto);},[dogPhoto]);
+  useEffect(()=>{save("meds",meds);},[meds]);
+  useEffect(()=>{save("alones",alones);},[alones]);
+  useEffect(()=>{save("weights",weights);},[weights]);
+  useEffect(()=>{save("walks",walks);},[walks]);
+  useEffect(()=>{save("photos",photos);},[photos]);
+  useEffect(()=>{save("vets",vets);},[vets]);
+  useEffect(()=>{save("symptoms",symptoms);},[symptoms]);
+  useEffect(()=>{save("friends",friends);},[friends]);
+  useEffect(()=>{save("places",places);},[places]);
+
+  useEffect(()=>{
+    const check=()=>{
+      const now=new Date().toTimeString().slice(0,5),td=today();
+      meds.forEach(m=>{
+        if(!m.active||!m.reminderTime)return;
+        if(m.reminderTime===now&&(!m.lastReminderDate||m.lastReminderDate!==td)){
+          setReminder(m);
+          setMeds(p=>p.map(x=>x.id===m.id?{...x,lastReminderDate:td}:x));
+        }
+      });
+    };
+    timerRef.current=setInterval(check,30000);check();
+    return()=>clearInterval(timerRef.current);
+  },[meds]);
+
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const addItem=(setter,item)=>{setter(p=>[{...item,id:Date.now()},...p]);setForm({});};
+  const delItem=(setter,id)=>setter(p=>p.filter(x=>x.id!==id));
+  const handleDogPhoto=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>setDogPhoto(ev.target.result);r.readAsDataURL(file);};
+  const handlePhotoUpload=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>f("photoData",ev.target.result);r.readAsDataURL(file);};
+  const goTo=id=>{setSection(id);setMenuOpen(false);setForm({});setMapPending(null);};
+
+  const weightChart=[...weights].reverse().slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5)}));
+  const aloneChart=[...alones].reverse().slice(-12).map(a=>({val:+a.score,label:fmt(a.date).slice(0,5)}));
+  const walksPerMonth=()=>{const c={};walks.forEach(w=>{const m=w.date?.slice(0,7)||"";c[m]=(c[m]||0)+1;});return Object.entries(c).sort().slice(-6).map(([m,v])=>({val:v,label:m.slice(5)}));};
+  const sympByType=()=>{const c={};symptoms.forEach(s=>{c[s.symptom]=(c[s.symptom]||0)+1;});return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({val:v,label:k.slice(0,8)}));};
+  const NAV_SECTIONS=SECTIONS.filter(s=>s.id!=="settings");
+
+  return(
+    <div style={{maxWidth:680,margin:"0 auto",padding:"0 0 2rem",minHeight:"100vh"}}>
+      <PawBg/>
+      <div style={{position:"relative",zIndex:1}}>
+
+        {/* Header */}
+        <div style={{background:`linear-gradient(135deg,${B.mid} 0%,${B.dark} 100%)`,borderRadius:"0 0 24px 24px",padding:"14px 18px 16px",marginBottom:18,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 4px 20px rgba(24,95,165,0.22)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div onClick={()=>photoInputRef.current?.click()} style={{width:48,height:48,borderRadius:"50%",border:"2.5px solid rgba(255,255,255,0.85)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:24}}>🐶</span>}
+            </div>
+            <input ref={photoInputRef} type="file" accept="image/*" onChange={handleDogPhoto} style={{display:"none"}}/>
+            <div>
+              <p style={{fontWeight:700,fontSize:17,margin:0,color:"white"}}>{dog.name||"Il mio cane"}</p>
+              <p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.65)"}}>{dog.breed||""}</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>goTo("settings")} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"7px 11px",cursor:"pointer",color:"white",fontSize:17,lineHeight:1}}>⚙️</button>
+            <div style={{position:"relative"}}>
+              <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"7px 13px",cursor:"pointer",color:"white",fontSize:16,fontWeight:600}}>☰</button>
+              {menuOpen&&(
+                <div style={{position:"absolute",right:0,top:44,background:"white",borderRadius:16,border:`1px solid ${B.border}`,boxShadow:"0 12px 40px rgba(55,138,221,0.18)",zIndex:100,minWidth:200,overflow:"hidden"}}>
+                  {NAV_SECTIONS.map((s,i)=>(
+                    <button key={s.id} onClick={()=>goTo(s.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"12px 18px",background:section===s.id?B.bg:"white",color:section===s.id?B.dark:"#334155",border:"none",borderBottom:i<NAV_SECTIONS.length-1?`1px solid ${B.bg}`:"none",cursor:"pointer",fontSize:14,fontWeight:section===s.id?700:400}}>
+                      {s.label}{section===s.id&&<span style={{color:B.mid,fontSize:12}}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Reminder */}
+        {reminder&&(
+          <div style={{margin:"0 0 12px",background:"#fef9c3",border:"1px solid #fde047",borderRadius:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:600,color:"#854d0e"}}>⏰ {reminder.name} — {reminder.dose}</span>
+            <Btn small onClick={()=>setReminder(null)}>✓ Ho dato</Btn>
+          </div>
+        )}
+
+        {/* HOME */}
+        {section==="home"&&(
+          <div>
+            <div style={{background:`linear-gradient(160deg,${B.mid} 0%,${B.dark} 100%)`,borderRadius:24,padding:"22px 20px 20px",marginBottom:14,boxShadow:"0 6px 24px rgba(24,95,165,0.22)",position:"relative",overflow:"hidden"}}>
+              <svg style={{position:"absolute",right:-16,bottom:-16,opacity:0.08,pointerEvents:"none"}} width="130" height="130" viewBox="0 0 100 100">
+                <ellipse cx="50" cy="58" rx="22" ry="18" fill="white"/>
+                <circle cx="33" cy="34" r="11" fill="white"/><circle cx="67" cy="34" r="11" fill="white"/>
+                <circle cx="20" cy="52" r="9" fill="white"/><circle cx="80" cy="52" r="9" fill="white"/>
+              </svg>
+              <div style={{display:"flex",alignItems:"center",gap:18,marginBottom:18}}>
+                <div style={{position:"relative",flexShrink:0}}>
+                  <div onClick={()=>photoInputRef.current?.click()} style={{width:90,height:90,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.88)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px rgba(0,0,0,0.18)"}}>
+                    {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:40}}>🐶</span>}
+                  </div>
+                  <div onClick={()=>photoInputRef.current?.click()} style={{position:"absolute",bottom:2,right:2,width:22,height:22,borderRadius:"50%",background:"white",border:`2px solid ${B.mid}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:11}}>✏️</div>
+                </div>
+                <div>
+                  <p style={{fontWeight:800,fontSize:26,margin:"0 0 3px",color:"white"}}>{dog.name||"Il mio cane"}</p>
+                  <p style={{fontSize:14,margin:"0 0 5px",color:"rgba(255,255,255,0.75)"}}>{dog.breed||"—"}</p>
+                  {dog.dob&&<p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.55)"}}>Nato il {fmt(dog.dob)}</p>}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {[{label:"Chip",val:dog.chip||"—"},{label:"Farmaci",val:meds.filter(m=>m.active).length+" attivi"},{label:"Peso",val:weights[0]?weights[0].kg+" kg":"—"},{label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next):"—"}].map(c=>(
+                  <div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:10,padding:"7px 12px"}}>
+                    <p style={{fontSize:10,color:"rgba(255,255,255,0.55)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.5px"}}>{c.label}</p>
+                    <p style={{fontSize:14,fontWeight:600,color:"white",margin:0}}>{c.val}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[{label:"Amici",val:friends.length},{label:"Giri",val:walks.length},{label:"Foto",val:photos.length}].map(c=>(
+                <div key={c.label} style={{background:"rgba(255,255,255,0.88)",borderRadius:14,padding:"14px 8px",textAlign:"center",border:`1px solid ${B.border}`}}>
+                  <p style={{fontSize:24,fontWeight:800,margin:"0 0 3px",color:B.text}}>{c.val}</p>
+                  <p style={{fontSize:12,color:B.dark,margin:0,fontWeight:500}}>{c.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {section==="settings"&&(
+          <Card>
+            <p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 12px",textTransform:"uppercase",letterSpacing:"0.5px"}}>Modifica profilo</p>
+            <Input label="Nome" value={dog.name} onChange={e=>setDog(p=>({...p,name:e.target.value}))} placeholder="es. Nemo"/>
+            <Input label="Razza" value={dog.breed} onChange={e=>setDog(p=>({...p,breed:e.target.value}))} placeholder="es. Labrador"/>
+            <Input label="Data di nascita" type="date" value={dog.dob} onChange={e=>setDog(p=>({...p,dob:e.target.value}))}/>
+            <Input label="Numero chip" value={dog.chip} onChange={e=>setDog(p=>({...p,chip:e.target.value}))}/>
+            <Btn small onClick={()=>photoInputRef.current?.click()}>📷 Cambia foto</Btn>
+            <p style={{fontSize:12,color:"#94a3b8",margin:"4px 0 0"}}>Salvato automaticamente</p>
+          </Card>
+        )}
+
+        {/* FARMACI */}
+        {section==="meds"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Aggiungi farmaco</p>
+              <Input label="Nome" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Antibiotico"/>
+              <Input label="Dose" value={form.dose||""} onChange={e=>f("dose",e.target.value)} placeholder="es. 1 compressa"/>
+              <Input label="Frequenza" value={form.freq||""} onChange={e=>f("freq",e.target.value)} placeholder="es. 2 volte al giorno"/>
+              <Input label="Inizio" type="date" value={form.start||today()} onChange={e=>f("start",e.target.value)}/>
+              <Input label="Fine (opzionale)" type="date" value={form.end||""} onChange={e=>f("end",e.target.value)}/>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>⏰ Orario reminder</label>
+                <input type="time" value={form.reminderTime||""} onChange={e=>f("reminderTime",e.target.value)} style={{width:"100%",borderRadius:8,border:`1px solid ${B.border}`,padding:"7px 10px",fontSize:14,background:B.bg}}/>
+              </div>
+              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
+              <Btn accent onClick={()=>{if(!form.name)return;addItem(setMeds,{...form,active:true,date:today()});}}>+ Aggiungi</Btn>
+            </Card>
+            {meds.filter(m=>m.active&&m.reminderTime).length>0&&(
+              <Card style={{background:"#fef9c3",border:"1px solid #fde047"}}>
+                <p style={{fontWeight:600,margin:"0 0 8px",color:"#854d0e"}}>⏰ Reminder attivi</p>
+                {meds.filter(m=>m.active&&m.reminderTime).sort((a,b)=>a.reminderTime.localeCompare(b.reminderTime)).map(m=>(
+                  <div key={m.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderTop:"1px solid #fde047",color:"#854d0e"}}>
+                    <span>{m.name} — {m.dose}</span><span style={{fontWeight:600}}>{m.reminderTime}</span>
+                  </div>
+                ))}
+              </Card>
+            )}
+            {meds.length===0&&<Empty msg="Nessun farmaco registrato"/>}
+            {meds.map(m=>(
+              <Card key={m.id}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <p style={{fontWeight:600,margin:"0 0 4px",color:B.text}}>{m.name}</p>
+                    <p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{m.dose} — {m.freq}</p>
+                    {m.reminderTime&&<Tag color="warning">⏰ {m.reminderTime}</Tag>}
+                    <Tag color={m.active?"success":"secondary"}>{m.active?"Attivo":"Finito"}</Tag>
+                    {m.notes&&<p style={{fontSize:12,color:"#64748b",margin:"6px 0 0"}}>{m.notes}</p>}
+                  </div>
+                  <Btn small danger onClick={()=>delItem(setMeds,m.id)}>✕</Btn>
+                </div>
+                <Btn small onClick={()=>setMeds(p=>p.map(x=>x.id===m.id?{...x,active:!x.active}:x))}>{m.active?"Segna finito":"Riattiva"}</Btn>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* SOLO A CASA */}
+        {section==="alone"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Nuova sessione</p>
+              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+              <Input label="Durata (minuti)" type="number" value={form.mins||""} onChange={e=>f("mins",e.target.value)} placeholder="es. 90"/>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:500}}>Comportamento osservato</label>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {ALONE_BEHAVIORS.map(b=>(
+                    <label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1px solid ${(form.behaviors||[]).includes(b.id)?B.mid:B.border}`,background:(form.behaviors||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14}}>
+                      <input type="checkbox" checked={(form.behaviors||[]).includes(b.id)} onChange={e=>{const c=form.behaviors||[];f("behaviors",e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Umore (1=ansioso 5=tranquillo)</label>
+                <input type="range" min={1} max={5} step={1} value={form.score||3} onChange={e=>f("score",+e.target.value)} style={{width:"100%"}}/>
+                <span style={{fontSize:15}}>{moodEmoji[form.score||3]} {moodLabel[form.score||3]}</span>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Note</label>
+                <textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. Oggi sembrava più rilassato..." style={{width:"100%",minHeight:70,padding:8,borderRadius:8,border:`1px solid ${B.border}`,background:B.bg,fontSize:14,resize:"vertical"}}/>
+              </div>
+              <Btn accent onClick={()=>addItem(setAlones,{...form,score:form.score||3,behaviors:form.behaviors||[]})}>+ Salva sessione</Btn>
+            </Card>
+            {alones.length>0&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                {[{label:"Media",val:(alones.reduce((s,a)=>s+(+a.score),0)/alones.length).toFixed(1)+" /5"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(
+                  <div key={c.label} style={{background:"rgba(255,255,255,0.88)",borderRadius:10,padding:"0.7rem",textAlign:"center",border:`1px solid ${B.border}`}}>
+                    <p style={{fontSize:11,color:B.dark,margin:"0 0 2px"}}>{c.label}</p>
+                    <p style={{fontSize:17,fontWeight:700,margin:0,color:B.text}}>{c.val}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {alones.length===0&&<Empty msg="Nessuna sessione registrata"/>}
+            {alones.map(a=>(
+              <Card key={a.id}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <p style={{fontWeight:600,margin:0,color:B.text}}>{fmt(a.date)}</p>
+                      {a.mins&&<Tag color="info">⏱ {a.mins} min</Tag>}
+                      <span>{moodEmoji[a.score]}</span>
+                    </div>
+                    {a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color="info">{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}
+                    {a.notes&&<div style={{background:B.bg,borderRadius:8,padding:"8px 10px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}
+                  </div>
+                  <Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* PESO */}
+        {section==="weight"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Registra peso</p>
+              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+              <Input label="Peso (kg)" type="number" step="0.1" value={form.kg||""} onChange={e=>f("kg",e.target.value)} placeholder="es. 12.5"/>
+              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
+              <Btn accent onClick={()=>{if(!form.kg)return;addItem(setWeights,form);}}>+ Aggiungi</Btn>
+            </Card>
+            {weights.length>=2&&<Card><p style={{fontWeight:600,marginBottom:8,color:B.text}}>Andamento</p><LineChart data={weightChart} color={B.mid}/></Card>}
+            {weights.length===0&&<Empty msg="Nessun peso registrato"/>}
+            {weights.map(w=>(
+              <Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:600,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></Card>
+            ))}
+          </div>
+        )}
+
+        {/* PASSEGGIATE */}
+        {section==="walks"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:8,color:B.text}}>Mappa luoghi preferiti</p>
+              <WalkMap places={places} onAddPlace={(lat,lng)=>setMapPending({lat,lng})}/>
+              {mapPending&&(
+                <div style={{marginTop:10,padding:12,background:B.bg,borderRadius:10,border:`1px solid ${B.border}`}}>
+                  <Input label="Nome luogo" value={form.placeName||""} onChange={e=>f("placeName",e.target.value)} placeholder="es. Parco Centrale"/>
+                  <Input label="Note" value={form.placeNotes||""} onChange={e=>f("placeNotes",e.target.value)}/>
+                  <div style={{marginBottom:8,display:"flex",flexWrap:"wrap",gap:6}}>
+                    {PLACE_EMOJIS.map(em=><button key={em} onClick={()=>f("placeEmoji",em)} style={{fontSize:20,padding:"4px 8px",borderRadius:8,border:`1px solid ${form.placeEmoji===em?B.mid:B.border}`,background:form.placeEmoji===em?B.bg:"white",cursor:"pointer"}}>{em}</button>)}
+                  </div>
+                  <Btn accent onClick={()=>{if(!form.placeName)return;setPlaces(p=>[...p,{id:Date.now(),name:form.placeName,notes:form.placeNotes,lat:mapPending.lat,lng:mapPending.lng,emoji:form.placeEmoji||"📍"}]);setMapPending(null);setForm({});}}>Salva</Btn>
+                  <Btn onClick={()=>{setMapPending(null);setForm({});}}>Annulla</Btn>
+                </div>
+              )}
+            </Card>
+            {places.length>0&&(
+              <Card>
+                <p style={{fontWeight:600,marginBottom:8,color:B.text}}>Luoghi ({places.length})</p>
+                {places.map(p=>(
+                  <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderTop:`1px solid ${B.bg}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:20}}>{p.emoji}</span><p style={{fontWeight:500,margin:0,fontSize:14}}>{p.name}</p></div>
+                    <Btn small danger onClick={()=>delItem(setPlaces,p.id)}>✕</Btn>
+                  </div>
+                ))}
+              </Card>
+            )}
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Registra giro</p>
+              <Input label="Data" type="date" value={form.wDate||today()} onChange={e=>f("wDate",e.target.value)}/>
+              <Input label="Durata (min)" type="number" value={form.wMins||""} onChange={e=>f("wMins",e.target.value)}/>
+              <Input label="Km percorsi" type="number" step="0.1" value={form.wKm||""} onChange={e=>f("wKm",e.target.value)}/>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Umore durante il giro</label>
+                <input type="range" min={1} max={5} step={1} value={form.wMood||3} onChange={e=>f("wMood",+e.target.value)} style={{width:"100%"}}/>
+                <span>{moodEmoji[form.wMood||3]} {moodLabel[form.wMood||3]}</span>
+              </div>
+              <Input label="Note" value={form.wNotes||""} onChange={e=>f("wNotes",e.target.value)}/>
+              <Btn accent onClick={()=>addItem(setWalks,{date:form.wDate||today(),mins:form.wMins,km:form.wKm,placeIds:form.wPlaces||[],mood:form.wMood||3,notes:form.wNotes})}>+ Salva giro</Btn>
+            </Card>
+            {walks.length===0&&<Empty msg="Nessun giro registrato"/>}
+            {walks.map(w=>(
+              <Card key={w.id}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <p style={{fontWeight:600,margin:0,color:B.text}}>{fmt(w.date)}</p>
+                      <span>{moodEmoji[w.mood]}</span>
+                    </div>
+                    <p style={{fontSize:13,color:"#64748b",margin:0}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>
+                  </div>
+                  <Btn small danger onClick={()=>delItem(setWalks,w.id)}>✕</Btn>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* DIARIO FOTO */}
+        {section==="photos"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Aggiungi foto</p>
+              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+              <Input label="Luogo / occasione" value={form.place||""} onChange={e=>f("place",e.target.value)} placeholder="es. Parco"/>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Foto</label>
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{fontSize:13}}/>
+              </div>
+              {form.photoData&&<img src={form.photoData} style={{width:"100%",borderRadius:10,marginBottom:10,maxHeight:200,objectFit:"cover"}}/>}
+              <Input label="Didascalia" value={form.caption||""} onChange={e=>f("caption",e.target.value)} placeholder="es. Prima passeggiata al mare!"/>
+              <Btn accent onClick={()=>{if(!form.photoData)return;addItem(setPhotos,form);}}>+ Aggiungi</Btn>
+            </Card>
+            {photos.length===0&&<Empty msg="Nessuna foto nel diario"/>}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {photos.map(p=>(
+                <div key={p.id} style={{background:"white",border:`1px solid ${B.border}`,borderRadius:14,overflow:"hidden"}}>
+                  <img src={p.photoData} style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
+                  <div style={{padding:"8px 10px"}}>
+                    <p style={{fontSize:12,color:B.dark,margin:"0 0 2px",fontWeight:500}}>{fmt(p.date)}{p.place?` · ${p.place}`:""}</p>
+                    {p.caption&&<p style={{fontSize:12,color:"#64748b",margin:0}}>{p.caption}</p>}
+                    <button onClick={()=>delItem(setPhotos,p.id)} style={{fontSize:11,color:"#b91c1c",background:"none",border:"none",cursor:"pointer",padding:0,marginTop:4}}>rimuovi</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* VETERINARIO */}
+        {section==="vet"&&(
+          <div>
+            {vets.filter(v=>v.next&&v.next>=today()).length>0&&(
+              <Card style={{background:"#f0fdf4",border:"1px solid #86efac"}}>
+                <p style={{fontWeight:600,margin:"0 0 8px",color:"#166534"}}>Prossimi appuntamenti</p>
+                {vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(
+                  <div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}>
+                    <span>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:600}}>{fmt(v.next)}</span>
+                  </div>
+                ))}
+              </Card>
+            )}
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Aggiungi visita / vaccino</p>
+              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+              <Input label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/>
+              <Input label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/>
+              <Input label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/>
+              <Input label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/>
+              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
+              <Btn accent onClick={()=>{if(!form.type)return;addItem(setVets,form);}}>+ Aggiungi</Btn>
+            </Card>
+            {vets.length===0&&<Empty msg="Nessuna visita registrata"/>}
+            {vets.map(v=>(
+              <Card key={v.id}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div><p style={{fontWeight:600,margin:"0 0 2px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:"6px 0 0"}}>{v.notes}</p>}</div>
+                  <Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* SINTOMI */}
+        {section==="symptoms"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Registra sintomo</p>
+              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+              <Input label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Gravità</label>
+                <select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:8,border:`1px solid ${B.border}`,padding:"7px 10px",background:B.bg,fontSize:14}}>
+                  <option value="lieve">Lieve — da tenere d'occhio</option>
+                  <option value="moderata">Moderata — meglio sentire il vet</option>
+                  <option value="grave">Grave — andare subito dal vet</option>
+                </select>
+              </div>
+              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
+              <Btn accent onClick={()=>{if(!form.symptom)return;addItem(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn>
+            </Card>
+            {symptoms.length===0&&<Empty msg="Nessun sintomo registrato"/>}
+            {symptoms.map(s=>(
+              <Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:600,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn></div></Card>
+            ))}
+          </div>
+        )}
+
+        {/* AMICI */}
+        {section==="friends"&&(
+          <div>
+            <Card>
+              <p style={{fontWeight:600,marginBottom:10,color:B.text}}>Aggiungi amico</p>
+              <Input label="Nome del cane" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Fido"/>
+              <Input label="Razza" value={form.breed||""} onChange={e=>f("breed",e.target.value)}/>
+              <Input label="Proprietario" value={form.owner||""} onChange={e=>f("owner",e.target.value)}/>
+              <div style={{marginBottom:12}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:500}}>Reazione di Nemo</label>
+                <div style={{display:"flex",gap:8}}>
+                  {REACTION_OPTIONS.map(r=>(
+                    <label key={r.val} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",padding:"10px 4px",borderRadius:10,border:`2px solid ${form.reaction===r.val?B.mid:B.border}`,background:form.reaction===r.val?B.bg:"white"}}>
+                      <input type="radio" name="reaction" value={r.val} checked={form.reaction===r.val} onChange={()=>f("reaction",r.val)} style={{display:"none"}}/>
+                      <span style={{fontSize:24}}>{r.label.split(" ")[0]}</span>
+                      <span style={{fontSize:12,color:B.dark,fontWeight:500}}>{r.label.split(" ")[1]}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:500}}>Note</label>
+                <textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. I primi minuti abbaia poi si calma..." style={{width:"100%",minHeight:70,padding:8,borderRadius:8,border:`1px solid ${B.border}`,background:B.bg,fontSize:14,resize:"vertical"}}/>
+              </div>
+              <Input label="Data primo incontro" type="date" value={form.metDate||today()} onChange={e=>f("metDate",e.target.value)}/>
+              <Btn accent onClick={()=>{if(!form.name)return;addItem(setFriends,{...form,reaction:form.reaction||"neutro"});}}>+ Aggiungi</Btn>
+            </Card>
+            {friends.length===0&&<Empty msg="Nessun amico registrato"/>}
+            {friends.map(fr=>{
+              const rx=REACTION_OPTIONS.find(r=>r.val===fr.reaction)||REACTION_OPTIONS[1];
+              return(
+                <Card key={fr.id}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                        <div style={{width:42,height:42,borderRadius:"50%",background:B.bg,border:`2px solid ${B.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🐕</div>
+                        <div><p style={{fontWeight:600,margin:0,color:B.text}}>{fr.name}{fr.breed?` · ${fr.breed}`:""}</p>{fr.owner&&<p style={{fontSize:13,color:"#64748b",margin:0}}>di {fr.owner}</p>}</div>
+                      </div>
+                      <Tag color={rx.color}>{rx.label}</Tag>
+                      {fr.notes&&<div style={{background:B.bg,borderRadius:8,padding:"8px 10px",marginTop:6}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{fr.notes}</p></div>}
+                    </div>
+                    <Btn small danger onClick={()=>delItem(setFriends,fr.id)}>✕</Btn>
+                  </div>
+                  <div style={{marginTop:8}}>{REACTION_OPTIONS.map(r=><Btn key={r.val} small onClick={()=>setFriends(p=>p.map(x=>x.id===fr.id?{...x,reaction:r.val}:x))}>{r.label}</Btn>)}</div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        {/* GRAFICI */}
+        {section==="charts"&&(
+          <div>
+            <Card>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontWeight:700,margin:0,color:B.text}}>Peso</p><Trend data={weightChart}/>
+              </div>
+              {weights.length>=2?<LineChart data={weightChart} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 pesate"/>}
+              {weights.length>0&&(
+                <div style={{display:"flex",gap:8,marginTop:10}}>
+                  {[{label:"Attuale",val:weights[0].kg+" kg"},{label:"Minimo",val:Math.min(...weights.map(w=>+w.kg))+" kg"},{label:"Massimo",val:Math.max(...weights.map(w=>+w.kg))+" kg"}].map(c=>(
+                    <div key={c.label} style={{flex:1,background:B.bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <p style={{fontSize:11,color:B.dark,margin:0}}>{c.label}</p>
+                      <p style={{fontSize:16,fontWeight:700,margin:0,color:B.text}}>{c.val}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+            <Card>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontWeight:700,margin:0,color:B.text}}>Solo a casa</p><Trend data={aloneChart}/>
+              </div>
+              {alones.length>=2?<LineChart data={aloneChart} color="#1D9E75"/>:<Empty msg="Aggiungi almeno 2 sessioni"/>}
+            </Card>
+            <Card>
+              <p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Passeggiate per mese</p>
+              {walks.length>=2?<BarChart data={walksPerMonth()} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 giri"/>}
+            </Card>
+            <Card>
+              <p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Sintomi più frequenti</p>
+              {symptoms.length>=2?<BarChart data={sympByType()} color="#E24B4A"/>:<Empty msg="Aggiungi almeno 2 sintomi"/>}
+              {symptoms.length>0&&(
+                <div style={{display:"flex",gap:8,marginTop:10}}>
+                  {[{label:"Gravi",val:symptoms.filter(s=>s.severity==="grave").length,bg:"#fee2e2",tc:"#b91c1c"},{label:"Moderati",val:symptoms.filter(s=>s.severity==="moderata").length,bg:"#fef9c3",tc:"#854d0e"},{label:"Lievi",val:symptoms.filter(s=>s.severity==="lieve").length,bg:"#dcfce7",tc:"#166534"}].map(c=>(
+                    <div key={c.label} style={{flex:1,background:c.bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
+                      <p style={{fontSize:11,color:c.tc,margin:0}}>{c.label}</p>
+                      <p style={{fontSize:16,fontWeight:700,margin:0,color:c.tc}}>{c.val}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
