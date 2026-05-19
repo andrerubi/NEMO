@@ -13,8 +13,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import{getFirestore,doc,setDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   const cfg={apiKey:"AIzaSyBr2Ai-vl4NxKunbQH0Q3Gr7nAbkhEuOjU",authDomain:"nemo-app-2ad96.firebaseapp.com",projectId:"nemo-app-2ad96",storageBucket:"nemo-app-2ad96.firebasestorage.app",messagingSenderId:"917177734551",appId:"1:917177734551:web:8d577a81886fdceceba0d2"};
   const app=initializeApp(cfg);const db=getFirestore(app);
   window._db=db;window._setDoc=setDoc;window._doc=doc;window._onSnapshot=onSnapshot;window._fbReady=true;
@@ -25,7 +25,7 @@
 body{font-family:system-ui,-apple-system,sans-serif;background:#f0f7ff;min-height:100vh;}
 input,select,textarea,button{font-family:inherit;}
 input[type=range]{width:100%;accent-color:#378ADD;}
-input[type=checkbox]{accent-color:#378ADD;}
+input[type=checkbox],input[type=radio]{accent-color:#378ADD;}
 ::-webkit-scrollbar{display:none;}
 </style>
 </head>
@@ -33,74 +33,66 @@ input[type=checkbox]{accent-color:#378ADD;}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useRef,useMemo}=React;
-const KEYS=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places"];
+
+const ALL_KEYS=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places","training","trainSessions","walkGoals"];
 const B={bg:"#e8f4fd",bg2:"#dbeeff",border:"#b3d9f5",mid:"#378ADD",dark:"#185FA5",text:"#042C53"};
 const GRAD="linear-gradient(135deg,#378ADD 0%,#185FA5 100%)";
 
 async function fbSave(k,v){try{if(!window._db)return;await window._setDoc(window._doc(window._db,"nemo",k),{value:JSON.stringify(v)});}catch(e){}}
-function fbListen(k,cb){if(!window._db)return()=>{};return window._onSnapshot(window._doc(window._db,"nemo",k),s=>{if(s.exists()){try{cb(JSON.parse(s.data().value));}catch(e){}}});}
-function compressImage(file,cb){const img=new Image(),r=new FileReader();r.onload=ev=>{img.onload=()=>{const c=document.createElement("canvas");const MAX=600;let w=img.width,h=img.height;if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);cb(c.toDataURL("image/jpeg",0.7));};img.src=ev.target.result;};r.readAsDataURL(file);}
+function fbListen(k,cb){if(!window._db)return()=>{};return window._onSnapshot(window._doc(window._db,"nemo",k),s=>{if(s.exists())try{cb(JSON.parse(s.data().value));}catch(e){}});}
+function compress(file,cb){const img=new Image(),r=new FileReader();r.onload=ev=>{img.onload=()=>{const c=document.createElement("canvas");const M=600;let w=img.width,h=img.height;if(w>h){if(w>M){h=Math.round(h*M/w);w=M;}}else if(h>M){w=Math.round(w*M/h);h=M;}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);cb(c.toDataURL("image/jpeg",0.7));};img.src=ev.target.result;};r.readAsDataURL(file);}
 
-// Service Worker for push notifications
-function registerSW(){
-  if(!('serviceWorker' in navigator)||!('Notification' in window))return;
-  const sw=`
-self.addEventListener('message',e=>{
-  if(e.data&&e.data.type==='SCHEDULE_NOTIF'){
-    const {title,body,delay}=e.data;
-    setTimeout(()=>{
-      self.registration.showNotification(title,{body,icon:'/icon.png',badge:'/icon.png',vibrate:[200,100,200]});
-    },delay);
-  }
-});
-self.addEventListener('notificationclick',e=>{e.notification.close();});
-`;
+function regSW(){
+  if(!('serviceWorker'in navigator)||!('Notification'in window))return;
+  const sw=`self.addEventListener('message',e=>{if(e.data&&e.data.type==='SCHED'){const{title,body,delay}=e.data;setTimeout(()=>self.registration.showNotification(title,{body,vibrate:[200,100,200]}),delay);}});`;
   const blob=new Blob([sw],{type:'application/javascript'});
-  const url=URL.createObjectURL(blob);
-  navigator.serviceWorker.register(url).then(reg=>{window._swReg=reg;}).catch(()=>{});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).then(r=>{window._sw=r;}).catch(()=>{});
 }
-function requestNotifPermission(){
-  if(!('Notification' in window))return;
-  if(Notification.permission==='default') Notification.requestPermission();
-}
-function scheduleNotification(title,body,delayMs){
-  if(Notification.permission==='granted'&&window._swReg){
-    window._swReg.active?.postMessage({type:'SCHEDULE_NOTIF',title,body,delay:delayMs});
-  }
-}
-function scheduleDailyReminders(meds){
+function schedNotif(title,body,delay){if(Notification.permission==='granted'&&window._sw){window._sw.active?.postMessage({type:'SCHED',title,body,delay});}}
+function schedMeds(meds){
   if(Notification.permission!=='granted')return;
   const now=new Date();
   meds.filter(m=>m.active&&m.reminderTime).forEach(m=>{
-    const [hh,mm]=m.reminderTime.split(':').map(Number);
-    const target=new Date(now);
-    target.setHours(hh,mm,0,0);
-    if(target<=now)target.setDate(target.getDate()+1);
-    const delay=target-now;
-    scheduleNotification(`💊 Farmaco per Nemo`,`È ora di dare: ${m.name} — ${m.dose}`,delay);
+    const[hh,mm]=m.reminderTime.split(':').map(Number);
+    const t=new Date(now);t.setHours(hh,mm,0,0);
+    if(t<=now)t.setDate(t.getDate()+1);
+    schedNotif(`💊 Farmaco per Nemo`,`${m.name} — ${m.dose}`,t-now);
+  });
+}
+function schedVets(vets){
+  if(Notification.permission!=='granted')return;
+  const now=new Date();
+  vets.filter(v=>v.next&&v.next>=today()).forEach(v=>{
+    const t=new Date(v.next+"T09:00:00");
+    const d1=new Date(t);d1.setDate(t.getDate()-1);
+    const d2=new Date(t);d2.setDate(t.getDate()-2);
+    if(d2>now)schedNotif("📅 Visita vet dopodomani",`${v.type}${v.vet?" da "+v.vet:""}`,d2-now);
+    if(d1>now)schedNotif("📅 Visita vet domani",`${v.type}${v.vet?" da "+v.vet:""}`,d1-now);
   });
 }
 
-const PAW_POS=[{x:7,y:8,r:-20},{x:78,y:4,r:15},{x:52,y:22,r:-10},{x:18,y:40,r:25},{x:88,y:38,r:-30},{x:38,y:58,r:10},{x:8,y:72,r:-15},{x:68,y:76,r:20},{x:48,y:90,r:-5},{x:25,y:92,r:18},{x:90,y:88,r:-8}];
-function PawBg(){return(<div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}><svg width="100%" height="100%" style={{position:"absolute",inset:0}}>{PAW_POS.map((p,i)=>(<g key={i} transform={`translate(${p.x}%, ${p.y}%) rotate(${p.r})`} opacity="0.06"><ellipse cx="0" cy="0" rx="14" ry="11" fill={B.mid}/><circle cx="-13" cy="-14" r="7" fill={B.mid}/><circle cx="13" cy="-14" r="7" fill={B.mid}/><circle cx="-19" cy="-3" r="5.5" fill={B.mid}/><circle cx="19" cy="-3" r="5.5" fill={B.mid}/></g>))}</svg></div>);}
+const PAW=[{x:7,y:8,r:-20},{x:78,y:4,r:15},{x:52,y:22,r:-10},{x:18,y:40,r:25},{x:88,y:38,r:-30},{x:38,y:58,r:10},{x:8,y:72,r:-15},{x:68,y:76,r:20},{x:48,y:90,r:-5},{x:25,y:92,r:18},{x:90,y:88,r:-8}];
+function PawBg(){return(<div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}><svg width="100%" height="100%" style={{position:"absolute",inset:0}}>{PAW.map((p,i)=>(<g key={i} transform={`translate(${p.x}%, ${p.y}%) rotate(${p.r})`} opacity="0.06"><ellipse cx="0" cy="0" rx="14" ry="11" fill={B.mid}/><circle cx="-13" cy="-14" r="7" fill={B.mid}/><circle cx="13" cy="-14" r="7" fill={B.mid}/><circle cx="-19" cy="-3" r="5.5" fill={B.mid}/><circle cx="19" cy="-3" r="5.5" fill={B.mid}/></g>))}</svg></div>);}
 
 const Card=({children,style})=>(<div style={{background:"rgba(255,255,255,0.95)",border:`1px solid ${B.border}`,borderRadius:18,padding:"1rem 1.25rem",marginBottom:12,boxShadow:"0 2px 12px rgba(55,138,221,0.09)",...style}}>{children}</div>);
-const Input=({label,...props})=>(<div style={{marginBottom:10}}>{label&&<label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{label}</label>}<input style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff",color:"#222",outline:"none"}} {...props}/></div>);
+const Inp=({label,...p})=>(<div style={{marginBottom:10}}>{label&&<label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{label}</label>}<input style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff",color:"#222",outline:"none"}} {...p}/></div>);
 const Btn=({onClick,children,danger,small,accent})=>(<button onClick={onClick} style={{fontSize:small?12:14,padding:small?"5px 12px":"9px 20px",background:danger?"#fee2e2":accent?GRAD:B.bg,color:danger?"#b91c1c":accent?"#fff":B.dark,border:`1.5px solid ${danger?"#fca5a5":accent?"transparent":B.border}`,borderRadius:10,cursor:"pointer",marginRight:6,marginBottom:4,fontWeight:600,boxShadow:accent?"0 3px 12px rgba(55,138,221,0.25)":"none"}}>{children}</button>);
-const Tag=({color,children})=>{const c={success:{bg:"#dcfce7",text:"#166534",border:"#86efac"},warning:{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},danger:{bg:"#fee2e2",text:"#b91c1c",border:"#fca5a5"},info:{bg:B.bg,text:B.dark,border:B.border},secondary:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}}[color]||{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"};return <span style={{fontSize:12,padding:"3px 10px",borderRadius:20,background:c.bg,color:c.text,border:`1px solid ${c.border}`,marginRight:4,display:"inline-block",marginBottom:2,fontWeight:600}}>{children}</span>;};
+const Tag=({color,children})=>{const c={success:{bg:"#dcfce7",text:"#166534",border:"#86efac"},warning:{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},danger:{bg:"#fee2e2",text:"#b91c1c",border:"#fca5a5"},info:{bg:B.bg,text:B.dark,border:B.border},secondary:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}}[color]||{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"};return<span style={{fontSize:12,padding:"3px 10px",borderRadius:20,background:c.bg,color:c.text,border:`1px solid ${c.border}`,marginRight:4,display:"inline-block",marginBottom:2,fontWeight:600}}>{children}</span>;};
 const Empty=({msg})=>(<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:32,marginBottom:8,opacity:0.35}}>🐾</div><p style={{color:"#94a3b8",fontSize:14}}>{msg}</p></div>);
-const EditPen=({onClick})=>(<button onClick={onClick} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>✏️</button>);
+const Pen=({onClick})=>(<button onClick={onClick} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,flexShrink:0}}>✏️</button>);
+const BackBtn=({onClick,label="← Indietro"})=>(<button onClick={onClick} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>{label}</button>);
 
 const today=()=>new Date().toISOString().split("T")[0];
 const fmt=d=>d?new Date(d+"T00:00:00").toLocaleDateString("it-IT"):"";
-const fmtMonth=d=>{if(!d)return"";const dt=new Date(d+"T00:00:00");return dt.toLocaleDateString("it-IT",{month:"long",year:"numeric"});};
+const fmtM=d=>{if(!d)return"";const dt=new Date(d+"T00:00:00");return dt.toLocaleDateString("it-IT",{month:"long",year:"numeric"});};
 
-const moodEmoji={1:"😞",2:"😕",3:"😐",4:"🙂",5:"😄"};
-const moodLabel={1:"Molto basso",2:"Basso",3:"Normale",4:"Buono",5:"Eccellente"};
-const REACTION_OPTIONS=[{val:"simpatico",label:"😊 Simpatico",color:"success"},{val:"neutro",label:"😐 Neutro",color:"warning"},{val:"ostile",label:"😠 Ostile",color:"danger"}];
-const PLACE_EMOJIS=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","🌿","🏟️","🌊"];
+const ME={1:"😞",2:"😕",3:"😐",4:"🙂",5:"😄"};
+const ML={1:"Molto basso",2:"Basso",3:"Normale",4:"Buono",5:"Eccellente"};
+const REACT=[{val:"simpatico",label:"😊 Simpatico",color:"success"},{val:"neutro",label:"😐 Neutro",color:"warning"},{val:"ostile",label:"😠 Ostile",color:"danger"}];
+const PEMOJI=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","🌿","🏟️","🌊"];
+const FASCIA=["🌅 Mattino","☀️ Pomeriggio","🌙 Sera"];
 
-  const ALONE_BEHAVIORS=[
+const BEHAVIORS=[
   {id:"divano",label:"😴 Tranquillo sul divano",pts:3},
   {id:"giocava",label:"🎾 Giocava / masticava",pts:3},
   {id:"dormiva",label:"💤 Dormiva",pts:4},
@@ -112,39 +104,44 @@ const PLACE_EMOJIS=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","�
   {id:"mangiato",label:"🍖 Ha mangiato regolarmente",pts:2},
   {id:"nonmangiato",label:"🚫 Non ha mangiato",pts:-2},
 ];
-
-const ALONE_SCORE_LABELS=[
-  {min:15,label:"🌟 Eccellente",color:"#166534",bg:"#dcfce7"},
-  {min:8,label:"😊 Molto bene",color:"#15803d",bg:"#f0fdf4"},
-  {min:3,label:"🙂 Abbastanza bene",color:"#854d0e",bg:"#fef9c3"},
-  {min:-2,label:"😐 Così così",color:"#9a3412",bg:"#fff7ed"},
+const BSCORE_LABELS=[
+  {min:12,label:"🌟 Eccellente",color:"#166534",bg:"#dcfce7"},
+  {min:6,label:"😊 Molto bene",color:"#15803d",bg:"#f0fdf4"},
+  {min:1,label:"🙂 Abbastanza bene",color:"#854d0e",bg:"#fef9c3"},
+  {min:-3,label:"😐 Così così",color:"#9a3412",bg:"#fff7ed"},
   {min:-99,label:"😟 Sessione difficile",color:"#b91c1c",bg:"#fee2e2"},
 ];
+function bScore(beh){return(beh||[]).reduce((s,id)=>{const b=BEHAVIORS.find(x=>x.id===id);return s+(b?b.pts:0);},0);}
+function bLabel(sc){return BSCORE_LABELS.find(l=>sc>=l.min)||BSCORE_LABELS[BSCORE_LABELS.length-1];}
 
-function getAloneScore(behaviors){
-  return(behaviors||[]).reduce((s,id)=>{const b=ALONE_BEHAVIORS.find(x=>x.id===id);return s+(b?b.pts:0);},0);
-}
-function getAloneScoreLabel(score){
-  return ALONE_SCORE_LABELS.find(l=>score>=l.min)||ALONE_SCORE_LABELS[ALONE_SCORE_LABELS.length-1];
-}
-
-const FASCIA_OPTIONS=["🌅 Mattino","☀️ Pomeriggio","🌙 Sera"];
-
-const AFFINITY_PARAMS=[
+const AFFINITY=[
   {id:"gioca",label:"Giocano insieme",max:20},
-  {id:"vicino",label:"Sta vicino / si avvicina",max:20},
+  {id:"vicino",label:"Sta vicino",max:20},
   {id:"abbaia",label:"Non abbaia (0=abbaia sempre)",max:20},
-  {id:"cibo",label:"Condivide spazio cibo/acqua",max:20},
+  {id:"cibo",label:"Condivide spazio cibo",max:20},
   {id:"rilassato",label:"Nemo è rilassato",max:20},
 ];
-function affinityScore(f){return!f.affinity?0:AFFINITY_PARAMS.reduce((s,p)=>s+(+(f.affinity[p.id]||0)),0);}
-function affinityLabel(score){
-  if(score>=80)return{label:"🏆 Migliore amico",color:"#166534",bg:"#dcfce7"};
-  if(score>=60)return{label:"💚 Molto affine",color:"#15803d",bg:"#f0fdf4"};
-  if(score>=40)return{label:"🙂 Abbastanza affine",color:"#854d0e",bg:"#fef9c3"};
-  if(score>=20)return{label:"😐 Poco affine",color:"#9a3412",bg:"#fff7ed"};
+function aScore(fr){return!fr.affinity?0:AFFINITY.reduce((s,p)=>s+(+(fr.affinity[p.id]||0)),0);}
+function aLabel(sc){
+  if(sc>=80)return{label:"🏆 Migliore amico",color:"#166534",bg:"#dcfce7"};
+  if(sc>=60)return{label:"💚 Molto affine",color:"#15803d",bg:"#f0fdf4"};
+  if(sc>=40)return{label:"🙂 Abbastanza affine",color:"#854d0e",bg:"#fef9c3"};
+  if(sc>=20)return{label:"😐 Poco affine",color:"#9a3412",bg:"#fff7ed"};
   return{label:"😬 Non affine",color:"#b91c1c",bg:"#fee2e2"};
 }
+
+const COMMANDS=[
+  {id:"seduto",nome:"Seduto",emoji:"🪑",come:"Di' 'Seduto' con tono fermo. Tieni un premio sopra la sua testa finché si siede, poi premia subito.",diff:1},
+  {id:"fermo",nome:"Fermo",emoji:"✋",come:"Da 'Seduto', apri il palmo verso di lui dicendo 'Fermo'. Allontanati un passo, torna e premia.",diff:2},
+  {id:"vieni",nome:"Vieni",emoji:"🏃",come:"Accovacciati, apri le braccia, chiama il nome + 'Vieni!' con entusiasmo. Premia sempre quando arriva.",diff:1},
+  {id:"terra",nome:"Terra",emoji:"⬇️",come:"Da 'Seduto', porta il premio verso il basso tra le zampe fino a che non si sdraia. Premia.",diff:2},
+  {id:"lascia",nome:"Lascia",emoji:"🚫",come:"Mostra un premio in pugno chiuso. Quando smette di annusare, apri il pugno e premia con l'altro.",diff:3},
+  {id:"prendilo",nome:"Prendilo",emoji:"🎾",come:"Lancia un oggetto dicendo 'Prendilo'. Inizia a distanza corta e premia se lo riporta.",diff:2},
+  {id:"posto",nome:"Al posto",emoji:"🛏️",come:"Indica la cuccia dicendo 'Al posto'. Porta un premio verso di essa. Premia quando ci sale.",diff:3},
+  {id:"zampa",nome:"Zampa",emoji:"🤝",come:"Da 'Seduto', tieni un premio in pugno a altezza zampa. Quando gratta il pugno, apri e premia.",diff:2},
+  {id:"gira",nome:"Gira",emoji:"🔄",come:"Con un premio in mano, traccia un cerchio intorno alla testa dicendo 'Gira'. Premia dopo il giro.",diff:3},
+  {id:"saluta",nome:"Saluta",emoji:"👋",come:"Da 'Terra', tieni un premio sopra finché si alza sulle zampe posteriori. Di' 'Saluta' e premia.",diff:4},
+];
 
 const SECTIONS=[
   {id:"home",label:"Profilo"},
@@ -159,84 +156,154 @@ const SECTIONS=[
   {id:"settings",label:"Impostazioni"},
 ];
 
-// Training commands database
-const COMANDI_BASE=[
-  {id:"seduto",nome:"Seduto",emoji:"🪑",come:"Di' 'Seduto' con tono fermo. Tieni un premio sopra la sua testa finché si siede, poi premia subito.",difficolta:1},
-  {id:"fermo",nome:"Fermo",emoji:"✋",come:"Chiedi 'Seduto', poi apri il palmo verso di lui dicendo 'Fermo'. Allontanati di un passo, torna e premia se è rimasto.",difficolta:2},
-  {id:"vieni",nome:"Vieni / Richiamo",emoji:"🏃",come:"Accovacciati, apri le braccia e chiama il suo nome + 'Vieni!' con tono entusiasta. Premia sempre quando arriva.",difficolta:1},
-  {id:"terra",nome:"Terra / Giù",emoji:"⬇️",come:"Da 'Seduto', porta il premio verso il basso tra le zampe anteriori fino a che non si sdraia. Premia.",difficolta:2},
-  {id:"lascia",nome:"Lascia",emoji:"🚫",come:"Mostra un premio in pugno chiuso. Quando smette di annusare e si allontana, apri il pugno e premia con l'altro.",difficolta:3},
-  {id:"prendilo",nome:"Prendilo",emoji:"🎾",come:"Lancia un oggetto dicendo 'Prendilo'. Inizia a distanza corta e premia se lo porta indietro.",difficolta:2},
-  {id:"posto",nome:"Al posto",emoji:"🛏️",come:"Indica la sua cuccia dicendo 'Al posto'. Porta un premio verso di essa. Premia quando ci sale sopra.",difficolta:3},
-  {id:"zampa",nome:"Zampa / Dai cinque",emoji:"🤝",come:"Chiedi 'Seduto', poi tieni un premio in pugno a altezza zampa. Quando gratta il pugno, apri e premia.",difficolta:2},
-  {id:"gira",nome:"Gira",emoji:"🔄",come:"Con un premio in mano, traccia un cerchio intorno alla sua testa in senso orario dicendo 'Gira'. Premia dopo il cerchio completo.",difficolta:3},
-  {id:"saluta",nome:"Saluta",emoji:"👋",come:"Da 'Terra', tieni un premio sopra di lui finché si alza sulle zampe posteriori. Di' 'Saluta' e premia.",difficolta:4},
-];
-
 function LineChart({data,color="#378ADD"}){
   if(!data||data.length<2)return <Empty msg="Servono almeno 2 dati"/>;
-  const W=500,H=120,PAD=32;
-  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
-  const vals=sorted.map(d=>d.val);
-  const max=Math.max(...vals),min=Math.min(...vals),range=max-min||1;
-  const pts=sorted.map((d,i)=>({x:PAD+(i/(sorted.length-1))*(W-PAD*2),y:PAD+((max-d.val)/range)*(H-PAD*2),label:d.label}));
+  const W=500,H=120,P=32;
+  const s=[...data].sort((a,b)=>(a.dk||"").localeCompare(b.dk||""));
+  const vs=s.map(d=>d.val);const mx=Math.max(...vs),mn=Math.min(...vs),rng=mx-mn||1;
+  const pts=s.map((d,i)=>({x:P+(i/(s.length-1))*(W-P*2),y:P+((mx-d.val)/rng)*(H-P*2),l:d.label}));
   const path=pts.map((p,i)=>`${i===0?"M":"L"} ${p.x} ${p.y}`).join(" ");
   const area=`${path} L ${pts[pts.length-1].x} ${H-8} L ${pts[0].x} ${H-8} Z`;
-  return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>{[0,1,2].map(i=>{const y=PAD+(i/2)*(H-PAD*1.5);return(<g key={i}><line x1={PAD} y1={y} x2={W-8} y2={y} stroke={B.border} strokeWidth="1"/><text x={PAD-4} y={y+4} fontSize="9" fill={B.dark} textAnchor="end">{(max-(i/2)*range).toFixed(1)}</text></g>);})} <path d={area} fill={color} fillOpacity="0.13"/><path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>{pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="5" fill="#fff" stroke={color} strokeWidth="2"/><text x={p.x} y={H} fontSize="9" fill={B.dark} textAnchor="middle">{p.label}</text></g>)}</svg>);
+  return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>{[0,1,2].map(i=>{const y=P+(i/2)*(H-P*1.5);return(<g key={i}><line x1={P} y1={y} x2={W-8} y2={y} stroke={B.border} strokeWidth="1"/><text x={P-4} y={y+4} fontSize="9" fill={B.dark} textAnchor="end">{(mx-(i/2)*rng).toFixed(1)}</text></g>);})} <path d={area} fill={color} fillOpacity="0.13"/><path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>{pts.map((p,i)=><g key={i}><circle cx={p.x} cy={p.y} r="5" fill="#fff" stroke={color} strokeWidth="2"/><text x={p.x} y={H} fontSize="9" fill={B.dark} textAnchor="middle">{p.l}</text></g>)}</svg>);
 }
 function BarChart({data,color="#378ADD"}){
   if(!data||data.length===0)return <Empty msg="Nessun dato"/>;
-  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
-  const W=500,H=110,PAD=28;
-  const max=Math.max(...sorted.map(d=>d.val),1);
-  const bw=Math.min(38,(W-PAD*2)/sorted.length-6);
-  return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>{sorted.map((d,i)=>{const bh=((d.val/max)*(H-PAD-10));const x=PAD+i*((W-PAD*2)/sorted.length)+((W-PAD*2)/sorted.length-bw)/2;const y=H-PAD-bh;return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="5" fill={color} fillOpacity="0.75"/><text x={x+bw/2} y={y-3} fontSize="9" fill={B.dark} textAnchor="middle">{d.val}</text><text x={x+bw/2} y={H-2} fontSize="9" fill={B.dark} textAnchor="middle">{d.label}</text></g>);})} </svg>);
+  const s=[...data].sort((a,b)=>(a.dk||"").localeCompare(b.dk||""));
+  const W=500,H=110,P=28;const mx=Math.max(...s.map(d=>d.val),1);const bw=Math.min(38,(W-P*2)/s.length-6);
+  return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>{s.map((d,i)=>{const bh=(d.val/mx)*(H-P-10);const x=P+i*((W-P*2)/s.length)+((W-P*2)/s.length-bw)/2;const y=H-P-bh;return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="5" fill={color} fillOpacity="0.75"/><text x={x+bw/2} y={y-3} fontSize="9" fill={B.dark} textAnchor="middle">{d.val}</text><text x={x+bw/2} y={H-2} fontSize="9" fill={B.dark} textAnchor="middle">{d.label}</text></g>);})} </svg>);
 }
 function Trend({data}){
   if(!data||data.length<2)return null;
-  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
-  const diff=sorted[sorted.length-1].val-sorted[sorted.length-2].val;
-  if(diff===0)return <Tag color="secondary">= stabile</Tag>;
-  return <Tag color={diff>0?"success":"danger"}>{diff>0?"↑ in aumento":"↓ in calo"}</Tag>;
+  const s=[...data].sort((a,b)=>(a.dk||"").localeCompare(b.dk||""));
+  const diff=s[s.length-1].val-s[s.length-2].val;
+  if(diff===0)return<Tag color="secondary">= stabile</Tag>;
+  return<Tag color={diff>0?"success":"danger"}>{diff>0?"↑ in aumento":"↓ in calo"}</Tag>;
 }
 
-function WalkMap({places,onAddPlace}){
-  const mapRef=useRef(null),leafletRef=useRef(null),markersRef=useRef([]);
-  const [mapReady,setMapReady]=useState(false),[clicking,setClicking]=useState(false);
-  useEffect(()=>{if(mapRef.current&&!leafletRef.current){const link=document.createElement("link");link.rel="stylesheet";link.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";document.head.appendChild(link);const s=document.createElement("script");s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";s.onload=()=>{setTimeout(()=>{const L=window.L,map=L.map(mapRef.current).setView([41.9,12.5],5);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map);leafletRef.current=map;setMapReady(true);if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>map.setView([p.coords.latitude,p.coords.longitude],14));},300);};document.head.appendChild(s);}},[]); 
-  useEffect(()=>{if(!mapReady||!leafletRef.current)return;const L=window.L,map=leafletRef.current;markersRef.current.forEach(m=>m.remove());markersRef.current=[];places.forEach(p=>{const icon=L.divIcon({className:"",html:`<div style="background:${B.mid};color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2)">${p.emoji||"📍"}</div>`,iconSize:[30,30],iconAnchor:[15,15]});markersRef.current.push(L.marker([p.lat,p.lng],{icon}).addTo(map).bindPopup(`<b>${p.name}</b>${p.notes?"<br>"+p.notes:""}`));});},[places,mapReady]);
-  useEffect(()=>{if(!mapReady||!leafletRef.current)return;const map=leafletRef.current;const h=e=>{if(clicking)onAddPlace&&onAddPlace(e.latlng.lat,e.latlng.lng);};map.on("click",h);return()=>map.off("click",h);},[mapReady,clicking,onAddPlace]);
-  return(<div><div ref={mapRef} style={{width:"100%",height:240,borderRadius:14,overflow:"hidden",border:`1.5px solid ${B.border}`}}/><div style={{marginTop:8}}><Btn small onClick={()=>setClicking(c=>!c)}>{clicking?"✓ Clicca sulla mappa...":"📍 Aggiungi luogo"}</Btn></div></div>);
+function GroupedList({items,renderItem,emptyMsg}){
+  const [mode,setMode]=useState("month");
+  const [open,setOpen]=useState({});
+  const groups=useMemo(()=>{
+    const g={};
+    [...items].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).forEach(item=>{
+      let key=item.date||"";
+      if(mode==="week"&&item.date){
+        const dt=new Date(item.date+"T00:00:00");
+        const mon=new Date(dt);mon.setDate(dt.getDate()-((dt.getDay()+6)%7));
+        key=mon.toISOString().split("T")[0];
+      } else if(mode==="month"&&item.date){key=item.date.slice(0,7);}
+      if(!g[key])g[key]=[];g[key].push(item);
+    });
+    return g;
+  },[items,mode]);
+  const keys=Object.keys(groups);
+  if(items.length===0)return<Empty msg={emptyMsg}/>;
+  const lbl=(k)=>{
+    if(!k)return"Senza data";
+    if(mode==="month"){const d=new Date(k+"-01T00:00:00");return d.toLocaleDateString("it-IT",{month:"long",year:"numeric"});}
+    const d=new Date(k+"T00:00:00");const e=new Date(d);e.setDate(d.getDate()+6);
+    return`${d.toLocaleDateString("it-IT",{day:"numeric",month:"short"})} – ${e.toLocaleDateString("it-IT",{day:"numeric",month:"short"})}`;
+  };
+  return(<div>
+    <div style={{display:"flex",gap:8,marginBottom:10}}>
+      {["month","week"].map(m=>(<button key={m} onClick={()=>setMode(m)} style={{flex:1,padding:"7px",borderRadius:10,border:`1.5px solid ${mode===m?B.mid:B.border}`,background:mode===m?B.bg:"white",cursor:"pointer",fontSize:13,fontWeight:600,color:mode===m?B.dark:"#64748b"}}>{m==="month"?"Per mese":"Per settimana"}</button>))}
+    </div>
+    {keys.map((k,ki)=>{
+      const isOpen=k in open?open[k]:ki===0;
+      return(<div key={k}>
+        <div onClick={()=>setOpen(p=>({...p,[k]:!isOpen}))} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 14px",background:GRAD,borderRadius:12,marginBottom:isOpen?8:10,cursor:"pointer",boxShadow:"0 2px 6px rgba(55,138,221,0.18)"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"white",margin:0,textTransform:"capitalize"}}>{lbl(k)}</p>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{background:"rgba(255,255,255,0.25)",color:"white",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:10}}>{groups[k].length}</span><span style={{color:"white",fontSize:14}}>{isOpen?"▲":"▼"}</span></div>
+        </div>
+        {isOpen&&<div style={{marginBottom:10}}>{groups[k].map(item=>renderItem(item))}</div>}
+      </div>);
+    })}
+  </div>);
 }
 
 function EditModal({item,fields,onSave,onClose,title}){
   const [data,setData]=useState({...item});
   const fd=(k,v)=>setData(p=>({...p,[k]:v}));
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
-      <div style={{background:"white",borderRadius:"22px 22px 0 0",padding:"20px 18px 32px",width:"100%",maxWidth:680,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-          <p style={{fontWeight:700,fontSize:16,color:B.text,margin:0}}>{title||"Modifica"}</p>
-          <button onClick={onClose} style={{background:B.bg,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:16}}>✕</button>
-        </div>
-        {fields.map(field=>{
-          if(field.type==="select")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><select value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}>{field.options.map(o=><option key={o.val||o} value={o.val||o}>{o.label||o}</option>)}</select></div>);
-          if(field.type==="textarea")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><textarea value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>);
-          if(field.type==="range")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type="range" min={field.min||1} max={field.max||5} step={1} value={data[field.key]||field.min||1} onChange={e=>fd(field.key,+e.target.value)} style={{width:"100%"}}/><span style={{fontSize:13}}>{moodEmoji[data[field.key]||3]} {moodLabel[data[field.key]||3]}</span></div>);
-          if(field.type==="checkboxes")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>{field.label}</label>{field.options.map(b=>(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${(data[field.key]||[]).includes(b.id)?B.mid:B.border}`,background:(data[field.key]||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14,marginBottom:6}}><input type="checkbox" checked={(data[field.key]||[]).includes(b.id)} onChange={e=>{const c=data[field.key]||[];fd(field.key,e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}</label>))}</div>);
-          return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type={field.type||"text"} value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} placeholder={field.placeholder||""} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff",outline:"none"}}/></div>);
-        })}
-        <Btn accent onClick={()=>{onSave(data);onClose();}}>Salva modifiche</Btn>
-      </div>
+  return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+    <div style={{background:"white",borderRadius:"22px 22px 0 0",padding:"20px 18px 32px",width:"100%",maxWidth:680,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><p style={{fontWeight:700,fontSize:16,color:B.text,margin:0}}>{title||"Modifica"}</p><button onClick={onClose} style={{background:B.bg,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:16}}>✕</button></div>
+      {fields.map(field=>{
+        if(field.type==="select")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><select value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}>{field.options.map(o=><option key={o.val||o} value={o.val||o}>{o.label||o}</option>)}</select></div>);
+        if(field.type==="textarea")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><textarea value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>);
+        if(field.type==="range")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type="range" min={field.min||1} max={field.max||5} step={1} value={data[field.key]||3} onChange={e=>fd(field.key,+e.target.value)} style={{width:"100%"}}/><span style={{fontSize:13}}>{ME[data[field.key]||3]} {ML[data[field.key]||3]}</span></div>);
+        if(field.type==="checkboxes")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>{field.label}</label>{field.options.map(b=>(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${(data[field.key]||[]).includes(b.id)?B.mid:B.border}`,background:(data[field.key]||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14,marginBottom:6}}><input type="checkbox" checked={(data[field.key]||[]).includes(b.id)} onChange={e=>{const c=data[field.key]||[];fd(field.key,e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}</label>))}</div>);
+        return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type={field.type||"text"} value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} placeholder={field.placeholder||""} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff",outline:"none"}}/></div>);
+      })}
+      <Btn accent onClick={()=>{onSave(data);onClose();}}>Salva modifiche</Btn>
     </div>
-  );
+  </div>);
 }
 
-function LoadingScreen(){return(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#cce8ff 0%,#f0f8ff 100%)"}}><PawBg/><div style={{position:"relative",zIndex:1,textAlign:"center"}}><div style={{width:80,height:80,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(55,138,221,0.3)"}}><span style={{fontSize:38}}>🐾</span></div><p style={{fontWeight:800,fontSize:22,color:B.text,margin:"0 0 8px"}}>Nemo</p><p style={{fontSize:14,color:B.dark,opacity:0.7}}>Caricamento in corso...</p></div></div>);}
+function CommandCard({cmd,training,setTraining,trainSessions,setTrainSessions}){
+  const [open,setOpen]=useState(false);
+  const [form,setForm]=useState({});
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const t=training.find(x=>x.commandId===cmd.id)||{commandId:cmd.id,status:"da iniziare"};
+  const sessions=trainSessions.filter(s=>s.commandId===cmd.id);
+  const sc={appreso:{bg:"#dcfce7",text:"#166534",border:"#86efac"},"in corso":{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},"da iniziare":{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}}[t.status]||{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"};
+  const diff="⭐".repeat(cmd.diff)+"☆".repeat(4-cmd.diff);
+  return(<Card style={{border:`1.5px solid ${t.status==="appreso"?"#86efac":t.status==="in corso"?"#fde047":B.border}`}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setOpen(o=>!o)}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <span style={{fontSize:24}}>{cmd.emoji}</span>
+        <div><p style={{fontWeight:700,margin:0,color:B.text}}>{cmd.nome}</p><p style={{fontSize:12,color:"#64748b",margin:0}}>{diff} · {sessions.length} sessioni</p></div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:10,background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`}}>{t.status}</span>
+        <span style={{color:B.dark,fontSize:14}}>{open?"▲":"▼"}</span>
+      </div>
+    </div>
+    {open&&(<div style={{marginTop:12,borderTop:`1px solid ${B.border}`,paddingTop:12}}>
+      <div style={{background:B.bg,borderRadius:10,padding:"10px 12px",marginBottom:12}}>
+        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 4px"}}>📖 Come insegnarlo</p>
+        <p style={{fontSize:13,color:"#334155",margin:0,lineHeight:1.6}}>{cmd.come}</p>
+      </div>
+      <div style={{display:"flex",gap:6,marginBottom:12}}>
+        {["da iniziare","in corso","appreso"].map(s=>(<button key={s} onClick={()=>{const ex=training.find(x=>x.commandId===cmd.id);if(ex)setTraining(p=>p.map(x=>x.commandId===cmd.id?{...x,status:s}:x));else setTraining(p=>[...p,{commandId:cmd.id,status:s,id:Date.now()}]);}} style={{flex:1,padding:"7px 4px",borderRadius:8,border:`1.5px solid ${t.status===s?B.mid:B.border}`,background:t.status===s?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600,color:t.status===s?B.dark:"#64748b"}}>{s==="da iniziare"?"⬜ Da iniziare":s==="in corso"?"🔄 In corso":"✅ Appreso"}</button>))}
+      </div>
+      <div style={{background:"#f8fbff",borderRadius:10,padding:"12px"}}>
+        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 8px"}}>➕ Registra sessione</p>
+        <Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+        <div style={{marginBottom:8}}>
+          <label style={{fontSize:12,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Risultato</label>
+          <div style={{display:"flex",gap:6}}>{["✅ Riuscito","🔄 Parziale","❌ Da rifare"].map(r=>(<button key={r} onClick={()=>f("result",r)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1.5px solid ${form.result===r?B.mid:B.border}`,background:form.result===r?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600}}>{r}</button>))}</div>
+        </div>
+        <Inp label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. Ci vuole ancora il premio..."/>
+        <Btn small accent onClick={()=>{setTrainSessions(p=>[{commandId:cmd.id,date:form.date||today(),result:form.result||"🔄 Parziale",notes:form.notes||"",id:Date.now()},...p]);setForm({});}}>Salva sessione</Btn>
+      </div>
+      {sessions.length>0&&(<div style={{marginTop:10}}>
+        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 6px"}}>📋 Ultime sessioni</p>
+        {[...sessions].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,4).map(s=>(<div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderTop:`1px solid ${B.bg}`,fontSize:13}}><span style={{color:"#64748b"}}>{fmt(s.date)}</span><span style={{fontWeight:600}}>{s.result}</span></div>))}
+      </div>)}
+    </div>)}
+  </Card>);
+}
 
-function App(){
+function WalkMap({places,onAddPlace}){
+  const mr=useRef(null),lr=useRef(null),marks=useRef([]);
+  const [ready,setReady]=useState(false),[click,setClick]=useState(false);
+  useEffect(()=>{
+    if(mr.current&&!lr.current){
+      const lnk=document.createElement("link");lnk.rel="stylesheet";lnk.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";document.head.appendChild(lnk);
+      const s=document.createElement("script");s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      s.onload=()=>setTimeout(()=>{const L=window.L,m=L.map(mr.current).setView([41.9,12.5],5);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(m);lr.current=m;setReady(true);if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>m.setView([p.coords.latitude,p.coords.longitude],14));},300);
+      document.head.appendChild(s);}
+  },[]);
+  useEffect(()=>{if(!ready||!lr.current)return;const L=window.L,m=lr.current;marks.current.forEach(x=>x.remove());marks.current=[];places.forEach(p=>{const ic=L.divIcon({className:"",html:`<div style="background:${B.mid};color:white;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2)">${p.emoji||"📍"}</div>`,iconSize:[30,30],iconAnchor:[15,15]});marks.current.push(L.marker([p.lat,p.lng],{icon:ic}).addTo(m).bindPopup(`<b>${p.name}</b>${p.notes?"<br>"+p.notes:""}`));});},[places,ready]);
+  useEffect(()=>{if(!ready||!lr.current)return;const m=lr.current;const h=e=>{if(click)onAddPlace&&onAddPlace(e.latlng.lat,e.latlng.lng);};m.on("click",h);return()=>m.off("click",h);},[ready,click,onAddPlace]);
+  return(<div><div ref={mr} style={{width:"100%",height:240,borderRadius:14,overflow:"hidden",border:`1.5px solid ${B.border}`}}/><div style={{marginTop:8}}><Btn small onClick={()=>setClick(c=>!c)}>{click?"✓ Clicca mappa...":"📍 Aggiungi luogo"}</Btn></div></div>);
+}
+
+function LoadingScreen(){return(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#cce8ff,#f0f8ff)"}}><PawBg/><div style={{position:"relative",zIndex:1,textAlign:"center"}}><div style={{width:80,height:80,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(55,138,221,0.3)"}}><span style={{fontSize:38}}>🐾</span></div><p style={{fontWeight:800,fontSize:22,color:B.text,margin:"0 0 8px"}}>Nemo</p><p style={{fontSize:14,color:B.dark,opacity:0.7}}>Caricamento...</p></div></div>);}
+
+export default function App(){
   const [section,setSection]=useState("home");
-  const [saluteSection,setSaluteSection]=useState(null); // "weight"|"vet"|"symptoms"
+  const [subSection,setSubSection]=useState(null);
   const [menuOpen,setMenuOpen]=useState(false);
   const [dog,setDog]=useState({name:"",breed:"",dob:"",chip:""});
   const [dogPhoto,setDogPhoto]=useState(null);
@@ -249,600 +316,397 @@ function App(){
   const [symptoms,setSymptoms]=useState([]);
   const [friends,setFriends]=useState([]);
   const [places,setPlaces]=useState([]);
+  const [training,setTraining]=useState([]);
+  const [trainSessions,setTrainSessions]=useState([]);
+  const [walkGoals,setWalkGoals]=useState([]);
   const [ready,setReady]=useState(false);
   const [reminder,setReminder]=useState(null);
   const [form,setForm]=useState({});
   const [mapPending,setMapPending]=useState(null);
   const [editItem,setEditItem]=useState(null);
-  const [training,setTraining]=useState([]);   // {commandId, status:"appreso"|"in corso"|"da iniziare", sessions:[{date,notes,riuscito}], goal:bool}
-  const [trainingSessions,setTrainingSessions]=useState([]); // log sessioni
-  const [walkGoals,setWalkGoals]=useState([]);  // obiettivi passeggiate
-  const [obiSection,setObiSection]=useState(null); // "passeggiate"|"addestramento"
-  const [notifEnabled,setNotifEnabled]=useState(Notification?.permission==="granted");
-  const dogPhotoInputRef=useRef(null);
-  const photoInputRef=useRef(null);
+  const [photoMonth,setPhotoMonth]=useState(null);
+  const [notifOk,setNotifOk]=useState(false);
+  const dogRef=useRef(null);
+  const photoRef=useRef(null);
+  const friendRef=useRef(null);
+  const saveOk=useRef(false);
   const timerRef=useRef(null);
-  const saveEnabled=useRef(false);
 
-  useEffect(()=>{registerSW();},[]);
+  useEffect(()=>{regSW();setNotifOk(Notification?.permission==="granted");},[]);
 
   useEffect(()=>{
     const init=()=>{
-      const setters={dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces,training:setTraining,trainingSessions:setTrainingSessions,walkGoals:setWalkGoals};
+      const setters={dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces,training:setTraining,trainSessions:setTrainSessions,walkGoals:setWalkGoals};
       let loaded={};
-      const ALL_KEYS=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places","training","trainingSessions","walkGoals"];
-      const unsubs=ALL_KEYS.map(k=>fbListen(k,v=>{setters[k]&&setters[k](v);loaded[k]=true;if(ALL_KEYS.every(key=>loaded[key])){setTimeout(()=>{saveEnabled.current=true;setReady(true);},300);}}));
-      const timeout=setTimeout(()=>{saveEnabled.current=true;setReady(true);},4000);
-      return()=>{unsubs.forEach(u=>u());clearTimeout(timeout);};
+      const unsubs=ALL_KEYS.map(k=>fbListen(k,v=>{if(setters[k])setters[k](v);loaded[k]=true;if(ALL_KEYS.every(key=>loaded[key]))setTimeout(()=>{saveOk.current=true;setReady(true);},300);}));
+      const t=setTimeout(()=>{saveOk.current=true;setReady(true);},4500);
+      return()=>{unsubs.forEach(u=>u());clearTimeout(t);};
     };
-    if(window._fbReady){const cleanup=init();return cleanup;}
-    let cleanup=null;const h=()=>{cleanup=init();};
+    if(window._fbReady){const c=init();return c;}
+    let c=null;const h=()=>{c=init();};
     window.addEventListener("firebase-ready",h);
-    return()=>{window.removeEventListener("firebase-ready",h);cleanup&&cleanup();};
+    return()=>{window.removeEventListener("firebase-ready",h);c&&c();};
   },[]);
 
-  useEffect(()=>{if(saveEnabled.current)fbSave("dog",dog);},[dog]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("dogPhoto",dogPhoto);},[dogPhoto]);
-  useEffect(()=>{if(saveEnabled.current){fbSave("meds",meds);if(notifEnabled)scheduleDailyReminders(meds);}},[meds]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("alones",alones);},[alones]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("weights",weights);},[weights]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("walks",walks);},[walks]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("photos",photos);},[photos]);
-  useEffect(()=>{if(saveEnabled.current){fbSave("vets",vets);if(notifEnabled)scheduleVetReminders(vets);}},[vets]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("symptoms",symptoms);},[symptoms]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("training",training);},[training]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("trainingSessions",trainingSessions);},[trainingSessions]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("walkGoals",walkGoals);},[walkGoals]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("places",places);},[places]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("dog",dog);},[dog]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("dogPhoto",dogPhoto);},[dogPhoto]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("meds",meds);if(notifOk)schedMeds(meds);},[meds]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("alones",alones);},[alones]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("weights",weights);},[weights]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("walks",walks);},[walks]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("photos",photos);},[photos]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("vets",vets);if(notifOk)schedVets(vets);},[vets]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("symptoms",symptoms);},[symptoms]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("friends",friends);},[friends]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("places",places);},[places]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("training",training);},[training]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("trainSessions",trainSessions);},[trainSessions]);
+  useEffect(()=>{if(!saveOk.current)return;fbSave("walkGoals",walkGoals);},[walkGoals]);
 
-  // In-app reminder check
+  // New-data notification
   useEffect(()=>{
-    const check=()=>{
-      const now=new Date().toTimeString().slice(0,5),td=today();
-      meds.forEach(m=>{if(!m.active||!m.reminderTime)return;if(m.reminderTime===now&&(!m.lastReminderDate||m.lastReminderDate!==td)){setReminder(m);setMeds(p=>p.map(x=>x.id===m.id?{...x,lastReminderDate:td}:x));}});
-    };
-    timerRef.current=setInterval(check,30000);check();
-    return()=>clearInterval(timerRef.current);
+    if(!ready)return;
+    const last=parseInt(localStorage.getItem("nemo_seen")||"0");
+    const all=[...alones,...walks,...photos,...vets,...symptoms,...trainSessions];
+    const newer=all.filter(x=>x.id&&x.id>last+30000);
+    if(newer.length>0&&last>0&&notifOk)schedNotif("🐾 Nemo è stato aggiornato",`${newer.length} nuov${newer.length>1?"i aggiornamenti":"o aggiornamento"}`,500);
+    localStorage.setItem("nemo_seen",String(Date.now()));
+  },[ready]);
+
+  useEffect(()=>{
+    const check=()=>{const now=new Date().toTimeString().slice(0,5),td=today();meds.forEach(m=>{if(!m.active||!m.reminderTime)return;if(m.reminderTime===now&&(!m.lastReminderDate||m.lastReminderDate!==td)){setReminder(m);setMeds(p=>p.map(x=>x.id===m.id?{...x,lastReminderDate:td}:x));}});};
+    timerRef.current=setInterval(check,30000);check();return()=>clearInterval(timerRef.current);
   },[meds]);
 
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
-  const addItem=(setter,item)=>{setter(p=>[{...item,id:Date.now()},...p]);setForm({});};
-  const delItem=(setter,id)=>setter(p=>p.filter(x=>x.id!==id));
-  const updateItem=(setter,id,data)=>setter(p=>p.map(x=>x.id===id?{...x,...data}:x));
-  const goTo=id=>{setSection(id);setMenuOpen(false);setForm({});setMapPending(null);setEditItem(null);setSaluteSection(null);};
-  const handleDogPhoto=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>setDogPhoto(data));};
-  const handlePhotoUpload=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>f("photoData",data));};
-  const handleFriendPhoto=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>f("friendPhoto",data));};
+  const add=(setter,item)=>{setter(p=>[{...item,id:Date.now()},...p]);setForm({});};
+  const del=(setter,id)=>setter(p=>p.filter(x=>x.id!==id));
+  const upd=(setter,id,data)=>setter(p=>p.map(x=>x.id===id?{...x,...data}:x));
+  const goTo=id=>{setSection(id);setSubSection(null);setMenuOpen(false);setForm({});setMapPending(null);setEditItem(null);};
+  const goSub=id=>setSubSection(id);
 
-  const enableNotifs=async()=>{
-    const perm=await Notification.requestPermission();
-    if(perm==="granted"){setNotifEnabled(true);scheduleDailyReminders(meds);}
-  };
-
-  // Data helpers
   const weightsSorted=useMemo(()=>[...weights].sort((a,b)=>(a.date||"").localeCompare(b.date||"")),[weights]);
-  const latestWeight=weightsSorted[weightsSorted.length-1];
-  const weightChart=weightsSorted.slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5),dateKey:w.date}));
-  const aloneChart=[...alones].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-12).map(a=>({val:getAloneScore(a.behaviors),label:fmt(a.date).slice(0,5),dateKey:a.date}));
-  const walksPerMonth=()=>{const c={};[...walks].forEach(w=>{const m=w.date?.slice(0,7)||"";c[m]=(c[m]||0)+1;});return Object.entries(c).sort().slice(-6).map(([m,v])=>({val:v,label:m.slice(5),dateKey:m}));};
-  const sympByType=()=>{const c={};symptoms.forEach(s=>{c[s.symptom]=(c[s.symptom]||0)+1;});return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({val:v,label:k.slice(0,8)}));};
-  const NAV_SECTIONS=SECTIONS.filter(s=>s.id!=="settings");
-  const photosByMonth=useMemo(()=>{const groups={};[...photos].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).forEach(p=>{const key=p.date?p.date.slice(0,7):"";if(!groups[key])groups[key]=[];groups[key].push(p);});return groups;},[photos]);
-  const randomPhoto=useMemo(()=>{if(!photos||photos.length===0)return null;return photos[Math.floor(Math.random()*photos.length)];},[photos.length]);
-  const sortedFriends=useMemo(()=>[...friends].sort((a,b)=>affinityScore(b)-affinityScore(a)),[friends]);
+  const latestW=weightsSorted[weightsSorted.length-1];
+  const wChart=weightsSorted.slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5),dk:w.date}));
+  const aChart=[...alones].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-12).map(a=>({val:bScore(a.behaviors),label:fmt(a.date).slice(0,5),dk:a.date}));
+  const wpm=()=>{const c={};walks.forEach(w=>{const m=(w.date||"").slice(0,7);c[m]=(c[m]||0)+1;});return Object.entries(c).sort().slice(-6).map(([m,v])=>({val:v,label:m.slice(5),dk:m}));};
+  const sbt=()=>{const c={};symptoms.forEach(s=>{c[s.symptom]=(c[s.symptom]||0)+1;});return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({val:v,label:k.slice(0,8)}));};
+  const sortedFriends=useMemo(()=>[...friends].sort((a,b)=>aScore(b)-aScore(a)),[friends]);
+  const photosByMonth=useMemo(()=>{const g={};[...photos].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).forEach(p=>{const k=(p.date||"").slice(0,7);if(!g[k])g[k]=[];g[k].push(p);});return g;},[photos]);
+  const randomPhoto=useMemo(()=>photos.length?photos[Math.floor(Math.random()*photos.length)]:null,[photos.length]);
+  const enableNotifs=async()=>{const p=await Notification.requestPermission();if(p==="granted"){setNotifOk(true);schedMeds(meds);schedVets(vets);}};
+  const navSections=SECTIONS.filter(s=>s.id!=="settings");
+  const isSection=s=>section===s&&!subSection;
+  const isSub=(s,sub)=>section===s&&subSection===sub;
 
-  if(!ready)return <LoadingScreen/>;
+  if(!ready)return<LoadingScreen/>;
 
-  // Shared header
-  const Header=()=>(
-    <div style={{background:GRAD,borderRadius:"0 0 28px 28px",padding:"16px 18px 18px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 24px rgba(24,95,165,0.28)"}}>
-      <div style={{display:"flex",alignItems:"center",gap:14}}>
-        <div onClick={()=>dogPhotoInputRef.current?.click()} style={{width:52,height:52,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.85)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-          {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:26}}>🐶</span>}
+  return(<div style={{maxWidth:680,margin:"0 auto",padding:"0 0 2rem",minHeight:"100vh"}}>
+    <PawBg/>
+    {editItem&&<EditModal item={editItem.item} fields={editItem.fields} title={editItem.title} onSave={data=>upd(editItem.setter,editItem.item.id,data)} onClose={()=>setEditItem(null)}/>}
+    <input ref={dogRef} type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(f)compress(f,d=>setDogPhoto(d));}} style={{display:"none"}}/>
+    <input ref={photoRef} type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(f)compress(f,d=>setForm(p=>({...p,photoData:d})));}} style={{display:"none"}}/>
+    <input ref={friendRef} type="file" accept="image/*" onChange={e=>{const f=e.target.files[0];if(f)compress(f,d=>setForm(p=>({...p,friendPhoto:d})));}} style={{display:"none"}}/>
+
+    <div style={{position:"relative",zIndex:1}}>
+      {/* HEADER */}
+      <div style={{background:GRAD,borderRadius:"0 0 28px 28px",padding:"16px 18px 18px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 24px rgba(24,95,165,0.28)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div onClick={()=>dogRef.current?.click()} style={{width:52,height:52,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.85)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:26}}>🐶</span>}
+          </div>
+          <div><p style={{fontWeight:800,fontSize:18,margin:0,color:"white"}}>{dog.name||"Nemo"}</p><p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p></div>
         </div>
-        <input ref={dogPhotoInputRef} type="file" accept="image/*" onChange={handleDogPhoto} style={{display:"none"}}/>
-        <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{display:"none"}}/>
-        <div>
-          <p style={{fontWeight:800,fontSize:18,margin:0,color:"white"}}>{dog.name||"Nemo"}</p>
-          <p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>goTo("settings")} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 12px",cursor:"pointer",color:"white",fontSize:18,lineHeight:1}}>⚙️</button>
+          <div style={{position:"relative"}}>
+            <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 14px",cursor:"pointer",color:"white",fontSize:17,fontWeight:700}}>☰</button>
+            {menuOpen&&(<div style={{position:"absolute",right:0,top:48,background:"white",borderRadius:18,border:`1px solid ${B.border}`,boxShadow:"0 16px 48px rgba(55,138,221,0.2)",zIndex:100,minWidth:210,overflow:"hidden"}}>
+              {navSections.map((s,i)=>(<button key={s.id} onClick={()=>goTo(s.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"13px 18px",background:section===s.id?B.bg:"white",color:section===s.id?B.dark:"#334155",border:"none",borderBottom:i<navSections.length-1?`1px solid ${B.bg}`:"none",cursor:"pointer",fontSize:14,fontWeight:section===s.id?700:400}}>{s.label}{section===s.id&&<span style={{color:B.mid,fontSize:13}}>✓</span>}</button>))}
+            </div>)}
+          </div>
         </div>
       </div>
-      <div style={{display:"flex",gap:8}}>
-        <button onClick={()=>goTo("settings")} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 12px",cursor:"pointer",color:"white",fontSize:18,lineHeight:1}}>⚙️</button>
-        <div style={{position:"relative"}}>
-          <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 14px",cursor:"pointer",color:"white",fontSize:17,fontWeight:700}}>☰</button>
-          {menuOpen&&(<div style={{position:"absolute",right:0,top:48,background:"white",borderRadius:18,border:`1px solid ${B.border}`,boxShadow:"0 16px 48px rgba(55,138,221,0.2)",zIndex:100,minWidth:210,overflow:"hidden"}}>{NAV_SECTIONS.map((s,i)=>(<button key={s.id} onClick={()=>goTo(s.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"13px 18px",background:section===s.id?B.bg:"white",color:section===s.id?B.dark:"#334155",border:"none",borderBottom:i<NAV_SECTIONS.length-1?`1px solid ${B.bg}`:"none",cursor:"pointer",fontSize:14,fontWeight:section===s.id?700:400}}>{s.label}{section===s.id&&<span style={{color:B.mid,fontSize:13,fontWeight:700}}>✓</span>}</button>))}</div>)}
-        </div>
-      </div>
-    </div>
-  );
 
-  return(
-    <div style={{maxWidth:680,margin:"0 auto",padding:"0 0 2rem",minHeight:"100vh"}}>
-      <PawBg/>
-      {editItem&&(<EditModal item={editItem.item} fields={editItem.fields} title={editItem.title} onSave={data=>updateItem(editItem.setter,editItem.item.id,data)} onClose={()=>setEditItem(null)}/>)}
-      <div style={{position:"relative",zIndex:1}}>
-        <Header/>
+      {/* REMINDER */}
+      {reminder&&(<div style={{margin:"0 0 14px",background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:"#854d0e"}}>⏰ {reminder.name} — {reminder.dose}</span><Btn small onClick={()=>setReminder(null)}>✓ Ho dato</Btn></div>)}
 
-        {/* REMINDER */}
-        {reminder&&(<div style={{margin:"0 0 14px",background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:"#854d0e"}}>⏰ {reminder.name} — {reminder.dose}</span><Btn small onClick={()=>setReminder(null)}>✓ Ho dato</Btn></div>)}
-
-        {/* HOME */}
-        {section==="home"&&(
-          <div>
-            <div style={{background:GRAD,borderRadius:24,marginBottom:16,boxShadow:"0 8px 28px rgba(24,95,165,0.25)",position:"relative",overflow:"hidden"}}>
-              <div onClick={()=>dogPhotoInputRef.current?.click()} style={{width:"100%",height:220,overflow:"hidden",cursor:"pointer",position:"relative",background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center"}}><span style={{fontSize:64}}>🐶</span><p style={{color:"rgba(255,255,255,0.7)",fontSize:13,marginTop:8}}>Tocca per aggiungere foto</p></div>}
-                <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(10,30,80,0.65) 100%)"}}/>
-                <div onClick={e=>{e.stopPropagation();dogPhotoInputRef.current?.click();}} style={{position:"absolute",top:12,right:12,width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13}}>✏️</div>
-                <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 18px"}}>
-                  <p style={{fontWeight:900,fontSize:28,margin:"0 0 2px",color:"white",textShadow:"0 1px 4px rgba(0,0,0,0.3)"}}>{dog.name||"Nemo"}</p>
-                  <p style={{fontSize:13,margin:0,color:"rgba(255,255,255,0.8)",fontWeight:500}}>🏠 Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
-                </div>
-              </div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"12px 14px"}}>
-                {[
-                  {label:"Chip",val:(dog.chip||"—").slice(0,10)},
-                  {label:"Farmaci",val:meds.filter(m=>m.active).length+"💊"},
-                  {label:"Peso",val:latestWeight?latestWeight.kg+"kg":"—"},
-                  {label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next).slice(0,8):"—"},
-                ].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:10,padding:"5px 10px"}}>
-                  <p style={{fontSize:9,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.5px",fontWeight:600}}>{c.label}</p>
-                  <p style={{fontSize:13,fontWeight:700,color:"white",margin:0,whiteSpace:"nowrap"}}>{c.val}</p>
-                </div>))}
-              </div>
+      {/* ===== HOME ===== */}
+      {isSection("home")&&(<div>
+        <div style={{background:GRAD,borderRadius:24,marginBottom:16,boxShadow:"0 8px 28px rgba(24,95,165,0.25)",position:"relative",overflow:"hidden"}}>
+          <div onClick={()=>dogRef.current?.click()} style={{width:"100%",height:220,overflow:"hidden",cursor:"pointer",position:"relative",background:"rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{textAlign:"center"}}><span style={{fontSize:64}}>🐶</span><p style={{color:"rgba(255,255,255,0.7)",fontSize:13,marginTop:8}}>Tocca per aggiungere foto</p></div>}
+            <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(10,30,80,0.65) 100%)"}}/>
+            <div onClick={e=>{e.stopPropagation();dogRef.current?.click();}} style={{position:"absolute",top:12,right:12,width:28,height:28,borderRadius:"50%",background:"rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13}}>✏️</div>
+            <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"16px 18px"}}>
+              <p style={{fontWeight:900,fontSize:28,margin:"0 0 2px",color:"white",textShadow:"0 1px 4px rgba(0,0,0,0.3)"}}>{dog.name||"Nemo"}</p>
+              <p style={{fontSize:13,margin:0,color:"rgba(255,255,255,0.8)",fontWeight:500}}>🏠 Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
-              {[{label:"Amici",val:friends.length,color:"#378ADD",bg:"linear-gradient(135deg,#e8f4fd,#dbeeff)"},{label:"Giri",val:walks.length,color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)"},{label:"Foto",val:photos.length,color:"#7C3AED",bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)"}].map(c=>(<div key={c.label} style={{background:c.bg,borderRadius:16,padding:"14px 10px",textAlign:"center",border:"1px solid rgba(255,255,255,0.8)"}}><p style={{fontSize:26,fontWeight:900,margin:"0 0 3px",color:c.color}}>{c.val}</p><p style={{fontSize:12,color:c.color,margin:0,fontWeight:600,opacity:0.8}}>{c.label}</p></div>))}
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"12px 14px"}}>
+            {[{label:"Chip",val:(dog.chip||"—").slice(0,12)},{label:"Farmaci",val:meds.filter(m=>m.active).length+"💊"},{label:"Peso",val:latestW?latestW.kg+"kg":"—"},{label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next).slice(0,8):"—"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:10,padding:"5px 10px"}}><p style={{fontSize:9,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.5px",fontWeight:600}}>{c.label}</p><p style={{fontSize:13,fontWeight:700,color:"white",margin:0,whiteSpace:"nowrap"}}>{c.val}</p></div>))}
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
+          {[{label:"Amici",val:friends.length,color:"#378ADD",bg:"linear-gradient(135deg,#e8f4fd,#dbeeff)"},{label:"Giri",val:walks.length,color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)"},{label:"Foto",val:photos.length,color:"#7C3AED",bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)"}].map(c=>(<div key={c.label} style={{background:c.bg,borderRadius:16,padding:"14px 10px",textAlign:"center",border:"1px solid rgba(255,255,255,0.8)"}}><p style={{fontSize:26,fontWeight:900,margin:"0 0 3px",color:c.color}}>{c.val}</p><p style={{fontSize:12,color:c.color,margin:0,fontWeight:600,opacity:0.8}}>{c.label}</p></div>))}
+        </div>
+        {randomPhoto?(<div style={{borderRadius:20,overflow:"hidden",marginBottom:16,boxShadow:"0 6px 20px rgba(55,138,221,0.15)",position:"relative"}}><img src={randomPhoto.photoData} style={{width:"100%",height:200,objectFit:"cover",display:"block"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(10,20,60,0.75) 100%)"}}/><div style={{position:"absolute",top:12,left:14}}><span style={{background:"rgba(255,255,255,0.2)",backdropFilter:"blur(8px)",color:"white",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,border:"1px solid rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.8px"}}>✨ Ricordo</span></div><div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 16px"}}>{randomPhoto.caption&&<p style={{fontWeight:700,fontSize:15,color:"white",margin:"0 0 3px",textShadow:"0 1px 4px rgba(0,0,0,0.4)"}}>{randomPhoto.caption}</p>}<p style={{fontSize:12,color:"rgba(255,255,255,0.75)",margin:0}}>{fmt(randomPhoto.date)}{randomPhoto.place?` · 📍 ${randomPhoto.place}`:""}</p></div></div>):(<div onClick={()=>goTo("photos")} style={{borderRadius:20,padding:"20px",background:"linear-gradient(135deg,#ede9fe,#ddd6fe)",border:"2px dashed #a78bfa",textAlign:"center",cursor:"pointer",marginBottom:16}}><p style={{fontSize:28,margin:"0 0 6px"}}>📸</p><p style={{fontSize:14,color:"#7C3AED",fontWeight:600,margin:0}}>Aggiungi le prime foto di Nemo</p></div>)}
+      </div>)}
+
+      {/* ===== SETTINGS ===== */}
+      {isSection("settings")&&(<div>
+        <Card><p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 14px",textTransform:"uppercase",letterSpacing:"0.8px"}}>Modifica profilo</p><Inp label="Nome" value={dog.name} onChange={e=>setDog(p=>({...p,name:e.target.value}))} placeholder="es. Nemo"/><Inp label="Razza" value={dog.breed} onChange={e=>setDog(p=>({...p,breed:e.target.value}))} placeholder="es. Labrador"/><Inp label="Data di nascita" type="date" value={dog.dob} onChange={e=>setDog(p=>({...p,dob:e.target.value}))}/><Inp label="Numero chip" value={dog.chip} onChange={e=>setDog(p=>({...p,chip:e.target.value}))}/><Btn accent onClick={()=>dogRef.current?.click()}>📷 Cambia foto</Btn><p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>Salvato automaticamente ☁️</p></Card>
+        <Card><p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:"0.8px"}}>🔔 Notifiche</p>{notifOk?(<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20}}>✅</span><div><p style={{fontWeight:600,margin:0,color:"#166534"}}>Notifiche attive</p><p style={{fontSize:12,color:"#64748b",margin:0}}>Farmaci, visite vet e aggiornamenti</p></div></div>):(<div><p style={{fontSize:14,color:"#64748b",marginBottom:10}}>Attiva le notifiche per ricevere promemoria farmaci, visite e aggiornamenti da Kika & Rubi.</p><Btn accent onClick={enableNotifs}>🔔 Attiva notifiche</Btn></div>)}</Card>
+      </div>)}
+
+      {/* ===== FARMACI ===== */}
+      {isSection("meds")&&(<div>
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi farmaco</p>
+          <Inp label="Nome" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Antibiotico"/><Inp label="Dose" value={form.dose||""} onChange={e=>f("dose",e.target.value)} placeholder="es. 1 compressa"/><Inp label="Frequenza" value={form.freq||""} onChange={e=>f("freq",e.target.value)} placeholder="es. 2 volte al giorno"/><Inp label="Inizio" type="date" value={form.start||today()} onChange={e=>f("start",e.target.value)}/><Inp label="Fine (opzionale)" type="date" value={form.end||""} onChange={e=>f("end",e.target.value)}/>
+          <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>⏰ Orario reminder</label><input type="time" value={form.reminderTime||""} onChange={e=>f("reminderTime",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff"}}/></div>
+          <Inp label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
+          <Btn accent onClick={()=>{if(!form.name)return;add(setMeds,{...form,active:true,date:today()});}}>+ Aggiungi</Btn>
+        </Card>
+        {!notifOk&&(<div style={{background:"#fef9c3",border:"1px solid #fde047",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"#854d0e"}}>Attiva le notifiche per il reminder</span><Btn small onClick={enableNotifs}>Attiva</Btn></div>)}
+        {meds.length===0&&<Empty msg="Nessun farmaco registrato"/>}
+        {meds.map(m=>(<Card key={m.id}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{m.name}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 6px"}}>{m.dose} — {m.freq}</p>{m.reminderTime&&<Tag color="warning">⏰ {m.reminderTime}</Tag>}<Tag color={m.active?"success":"secondary"}>{m.active?"Attivo":"Finito"}</Tag></div>
+            <div style={{display:"flex",gap:4}}><Pen onClick={()=>setEditItem({setter:setMeds,item:m,title:"Modifica farmaco",fields:[{key:"name",label:"Nome"},{key:"dose",label:"Dose"},{key:"freq",label:"Frequenza"},{key:"start",label:"Inizio",type:"date"},{key:"end",label:"Fine",type:"date"},{key:"reminderTime",label:"Reminder",type:"time"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>del(setMeds,m.id)}>✕</Btn></div>
+          </div>
+          <Btn small onClick={()=>setMeds(p=>p.map(x=>x.id===m.id?{...x,active:!x.active}:x))}>{m.active?"Segna finito":"Riattiva"}</Btn>
+        </Card>))}
+      </div>)}
+
+      {/* ===== SOLO A CASA ===== */}
+      {isSection("alone")&&(<div>
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Nuova sessione</p>
+          <Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+          <div style={{marginBottom:12}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Fascia oraria</label><div style={{display:"flex",gap:8}}>{FASCIA.map(fas=>(<button key={fas} onClick={()=>f("fascia",fas)} style={{flex:1,padding:"9px 6px",borderRadius:12,border:`2px solid ${form.fascia===fas?B.mid:B.border}`,background:form.fascia===fas?B.bg:"white",cursor:"pointer",fontSize:13,fontWeight:600,color:form.fascia===fas?B.dark:"#64748b"}}>{fas}</button>))}</div></div>
+          <Inp label="Durata (minuti)" type="number" value={form.mins||""} onChange={e=>f("mins",e.target.value)} placeholder="es. 90"/>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Comportamenti <span style={{fontSize:11,color:"#94a3b8",fontWeight:400}}>(peso nel punteggio)</span></label>
+            <div style={{display:"flex",flexDirection:"column",gap:7}}>
+              {BEHAVIORS.map(b=>{const sel=(form.behaviors||[]).includes(b.id);return(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",borderRadius:12,border:`1.5px solid ${sel?B.mid:B.border}`,background:sel?B.bg:"white",cursor:"pointer",fontSize:14,fontWeight:500}}>
+                <input type="checkbox" checked={sel} onChange={e=>{const c=form.behaviors||[];f("behaviors",e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>
+                <span style={{flex:1}}>{b.label}</span>
+                <span style={{fontSize:11,fontWeight:700,color:b.pts>0?"#166534":"#b91c1c",background:b.pts>0?"#dcfce7":"#fee2e2",padding:"2px 7px",borderRadius:10}}>{b.pts>0?"+":""}{b.pts}</span>
+              </label>);})}
             </div>
-            {randomPhoto?(<div style={{borderRadius:20,overflow:"hidden",marginBottom:16,boxShadow:"0 6px 20px rgba(55,138,221,0.15)",position:"relative"}}><img src={randomPhoto.photoData} style={{width:"100%",height:200,objectFit:"cover",display:"block"}}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(10,20,60,0.75) 100%)"}}/><div style={{position:"absolute",top:12,left:14}}><span style={{background:"rgba(255,255,255,0.2)",backdropFilter:"blur(8px)",color:"white",fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,border:"1px solid rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.8px"}}>✨ Ricordo</span></div><div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 16px"}}>{randomPhoto.caption&&<p style={{fontWeight:700,fontSize:15,color:"white",margin:"0 0 3px",textShadow:"0 1px 4px rgba(0,0,0,0.4)"}}>{randomPhoto.caption}</p>}<p style={{fontSize:12,color:"rgba(255,255,255,0.75)",margin:0}}>{fmt(randomPhoto.date)}{randomPhoto.place?` · 📍 ${randomPhoto.place}`:""}</p></div></div>):(<div onClick={()=>goTo("photos")} style={{borderRadius:20,padding:"20px",background:"linear-gradient(135deg,#ede9fe,#ddd6fe)",border:"2px dashed #a78bfa",textAlign:"center",cursor:"pointer",marginBottom:16}}><p style={{fontSize:28,margin:"0 0 6px"}}>📸</p><p style={{fontSize:14,color:"#7C3AED",fontWeight:600,margin:0}}>Aggiungi le prime foto di Nemo</p></div>)}
+            {(form.behaviors||[]).length>0&&(()=>{const sc=bScore(form.behaviors);const lb=bLabel(sc);return(<div style={{marginTop:10,background:lb.bg,borderRadius:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:lb.color}}>{lb.label}</span><span style={{fontWeight:800,fontSize:20,color:lb.color}}>{sc>0?"+":""}{sc} pt</span></div>);})()}
           </div>
-        )}
+          <div style={{marginBottom:12}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
+          <Btn accent onClick={()=>add(setAlones,{...form,behaviors:form.behaviors||[]})}>+ Salva sessione</Btn>
+        </Card>
+        {alones.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Media",val:(alones.reduce((s,a)=>s+bScore(a.behaviors||[]),0)/alones.length).toFixed(1)+" pt"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
+        <GroupedList items={alones} emptyMsg="Nessuna sessione" renderItem={a=>{const sc=bScore(a.behaviors||[]);const lb=bLabel(sc);return(<Card key={a.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>{a.fascia&&<Tag color="info">{a.fascia}</Tag>}{a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}<span style={{fontSize:11,fontWeight:700,color:lb.color,background:lb.bg,padding:"2px 9px",borderRadius:10}}>{lb.label} ({sc>0?"+":""}{sc})</span></div>{a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bid=>{const b=BEHAVIORS.find(x=>x.id===bid);return b?<Tag key={bid} color={b.pts>0?"success":"danger"}>{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}{a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><Pen onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia",type:"select",options:FASCIA.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>del(setAlones,a.id)}>✕</Btn></div></div></Card>);}}/>
+      </div>)}
 
-        {/* SETTINGS */}
-        {section==="settings"&&(
-          <div>
-            <Card><p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 14px",textTransform:"uppercase",letterSpacing:"0.8px"}}>Modifica profilo</p><Input label="Nome" value={dog.name} onChange={e=>setDog(p=>({...p,name:e.target.value}))} placeholder="es. Nemo"/><Input label="Razza" value={dog.breed} onChange={e=>setDog(p=>({...p,breed:e.target.value}))} placeholder="es. Labrador"/><Input label="Data di nascita" type="date" value={dog.dob} onChange={e=>setDog(p=>({...p,dob:e.target.value}))}/><Input label="Numero chip" value={dog.chip} onChange={e=>setDog(p=>({...p,chip:e.target.value}))}/><Btn accent onClick={()=>dogPhotoInputRef.current?.click()}>📷 Cambia foto profilo</Btn><p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>Salvato automaticamente su cloud ☁️</p></Card>
-            <Card>
-              <p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:"0.8px"}}>🔔 Notifiche farmaci</p>
-              {notifEnabled?(<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20}}>✅</span><div><p style={{fontWeight:600,margin:0,color:"#166534"}}>Notifiche attive</p><p style={{fontSize:12,color:"#64748b",margin:0}}>Riceverai un promemoria per ogni farmaco</p></div></div>):(<div><p style={{fontSize:14,color:"#64748b",marginBottom:10}}>Attiva le notifiche push per ricevere il promemoria dei farmaci anche quando l'app è chiusa.</p><Btn accent onClick={enableNotifs}>🔔 Attiva notifiche</Btn></div>)}
-            </Card>
+      {/* ===== SALUTE HUB ===== */}
+      {isSection("salute")&&(<div>
+        {[
+          {id:"weight",emoji:"⚖️",title:"Peso",desc:"Registra e monitora il peso",color:"#378ADD",bg:"linear-gradient(135deg,#e8f4fd,#dbeeff)",val:latestW?latestW.kg+" kg":"—"},
+          {id:"vet",emoji:"💉",title:"Veterinario",desc:"Visite, vaccini e appuntamenti",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",val:vets.find(v=>v.next&&v.next>=today())?fmt(vets.find(v=>v.next&&v.next>=today()).next):"Nessuna"},
+          {id:"symptoms",emoji:"🩺",title:"Sintomi",desc:"Anomalie e sintomi da monitorare",color:"#E24B4A",bg:"linear-gradient(135deg,#fee2e2,#fecaca)",val:symptoms.filter(s=>s.severity==="grave").length>0?`⚠️ ${symptoms.filter(s=>s.severity==="grave").length} gravi`:`${symptoms.length} registrati`},
+        ].map(s=>(<div key={s.id} onClick={()=>goSub(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
+          <div style={{flex:1}}><p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p><span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span></div>
+          <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
+        </div>))}
+      </div>)}
+
+      {/* PESO */}
+      {isSub("salute","weight")&&(<div>
+        <BackBtn onClick={()=>goSub(null)} label="← Salute"/>
+        <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra peso</p><Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Inp label="Peso (kg)" type="number" step="0.1" value={form.kg||""} onChange={e=>f("kg",e.target.value)} placeholder="es. 12.5"/><Inp label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.kg)return;add(setWeights,form);}}>+ Aggiungi</Btn></Card>
+        {wChart.length>=2&&<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Andamento</p><LineChart data={wChart} color={B.mid}/>{latestW&&<p style={{fontSize:13,color:B.dark,marginTop:6,textAlign:"right"}}>Attuale: <strong>{latestW.kg} kg</strong> ({fmt(latestW.date)})</p>}</Card>}
+        <GroupedList items={weightsSorted.slice().reverse()} emptyMsg="Nessun peso" renderItem={w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><Pen onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso",type:"number"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>del(setWeights,w.id)}>✕</Btn></div></div></Card>)}/>
+      </div>)}
+
+      {/* VET */}
+      {isSub("salute","vet")&&(<div>
+        <BackBtn onClick={()=>goSub(null)} label="← Salute"/>
+        {vets.filter(v=>v.next&&v.next>=today()).length>0&&(<Card style={{background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:"1px solid #86efac"}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📅 Prossimi</p>{vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}><span style={{fontWeight:500}}>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:700}}>{fmt(v.next)}</span></div>))}</Card>)}
+        <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi visita</p><Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Inp label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/><Inp label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/><Inp label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/><Inp label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/><Inp label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.type)return;add(setVets,form);}}>+ Aggiungi</Btn></Card>
+        <GroupedList items={vets} emptyMsg="Nessuna visita" renderItem={v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div><div style={{display:"flex",gap:4}}><Pen onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>del(setVets,v.id)}>✕</Btn></div></div></Card>)}/>
+      </div>)}
+
+      {/* SINTOMI */}
+      {isSub("salute","symptoms")&&(<div>
+        <BackBtn onClick={()=>goSub(null)} label="← Salute"/>
+        <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra sintomo</p><Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Inp label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Gravità</label><select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}><option value="lieve">Lieve</option><option value="moderata">Moderata</option><option value="grave">Grave</option></select></div><Inp label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.symptom)return;add(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn></Card>
+        <GroupedList items={symptoms} emptyMsg="Nessun sintomo" renderItem={s=>(<Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><div style={{display:"flex",gap:4}}><Pen onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>del(setSymptoms,s.id)}>✕</Btn></div></div></Card>)}/>
+      </div>)}
+
+      {/* ===== PASSEGGIATE ===== */}
+      {isSection("walks")&&(<div>
+        <Card>
+          <p style={{fontWeight:700,marginBottom:10,color:B.text}}>Mappa luoghi</p>
+          <WalkMap places={places} onAddPlace={(lat,lng)=>setMapPending({lat,lng})}/>
+          {mapPending&&(<div style={{marginTop:12,padding:14,background:B.bg,borderRadius:12,border:`1.5px solid ${B.border}`}}>
+            <Inp label="Nome luogo" value={form.placeName||""} onChange={e=>f("placeName",e.target.value)} placeholder="es. Parco Centrale"/>
+            <Inp label="Note" value={form.placeNotes||""} onChange={e=>f("placeNotes",e.target.value)}/>
+            <div style={{marginBottom:10,display:"flex",flexWrap:"wrap",gap:7}}>{PEMOJI.map(em=><button key={em} onClick={()=>f("placeEmoji",em)} style={{fontSize:22,padding:"5px 9px",borderRadius:10,border:`1.5px solid ${form.placeEmoji===em?B.mid:B.border}`,background:form.placeEmoji===em?B.bg:"white",cursor:"pointer"}}>{em}</button>)}</div>
+            <Btn accent onClick={()=>{if(!form.placeName)return;add(setPlaces,{name:form.placeName,notes:form.placeNotes,lat:mapPending.lat,lng:mapPending.lng,emoji:form.placeEmoji||"📍"});setMapPending(null);}}>Salva</Btn>
+            <Btn onClick={()=>{setMapPending(null);setForm({});}}>Annulla</Btn>
+          </div>)}
+        </Card>
+        {places.length>0&&(<Card><p style={{fontWeight:700,marginBottom:8,color:B.text}}>Luoghi ({places.length})</p>{places.map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:`1px solid ${B.bg}`}}><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:22}}>{p.emoji}</span><p style={{fontWeight:500,margin:0,fontSize:14}}>{p.name}</p></div><Btn small danger onClick={()=>del(setPlaces,p.id)}>✕</Btn></div>))}</Card>)}
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra giro</p>
+          <Inp label="Data" type="date" value={form.wDate||today()} onChange={e=>f("wDate",e.target.value)}/>
+          <Inp label="Durata (min)" type="number" value={form.wMins||""} onChange={e=>f("wMins",e.target.value)}/>
+          <Inp label="Km percorsi" type="number" step="0.1" value={form.wKm||""} onChange={e=>f("wKm",e.target.value)}/>
+          {places.length>0&&(<div style={{marginBottom:12}}>
+            <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi toccati</label>
+            <select value="" onChange={e=>{if(e.target.value){const id=+e.target.value;const c=form.wPlaces||[];if(!c.includes(id))f("wPlaces",[...c,id]);}}} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14,marginBottom:8}}>
+              <option value="">+ Seleziona luogo...</option>
+              {places.filter(p=>!(form.wPlaces||[]).includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+            </select>
+            {(form.wPlaces||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(form.wPlaces||[]).map(pid=>{const p=places.find(x=>x.id===pid);return p?<span key={pid} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:20,padding:"3px 10px",fontSize:13,display:"flex",alignItems:"center",gap:5}}>{p.emoji} {p.name}<button onClick={()=>f("wPlaces",(form.wPlaces||[]).filter(x=>x!==pid))} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#b91c1c",padding:0,marginLeft:2}}>✕</button></span>:null;})}</div>}
+          </div>)}
+          <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Umore</label><input type="range" min={1} max={5} step={1} value={form.wMood||3} onChange={e=>f("wMood",+e.target.value)} style={{width:"100%"}}/><span>{ME[form.wMood||3]} {ML[form.wMood||3]}</span></div>
+          <Inp label="Note" value={form.wNotes||""} onChange={e=>f("wNotes",e.target.value)}/>
+          <Btn accent onClick={()=>add(setWalks,{date:form.wDate||today(),mins:form.wMins,km:form.wKm,placeIds:form.wPlaces||[],mood:form.wMood||3,notes:form.wNotes})}>+ Salva giro</Btn>
+        </Card>
+        {walks.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Giri",val:walks.length},{label:"Km totali",val:walks.reduce((s,w)=>s+(+(w.km||0)),0).toFixed(1)},{label:"Ore",val:(walks.reduce((s,w)=>s+(+(w.mins||0)),0)/60).toFixed(1)+"h"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
+        <GroupedList items={walks} emptyMsg="Nessun giro" renderItem={w=>{const wps=places.filter(p=>(w.placeIds||[]).includes(p.id));return(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(w.date)}</p><span>{ME[w.mood]}</span></div><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>{wps.length>0&&<div style={{marginBottom:4}}>{wps.map(p=><Tag key={p.id} color="info">{p.emoji} {p.name}</Tag>)}</div>}{w.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:0}}>{w.notes}</p>}</div><div style={{display:"flex",gap:4}}><Pen onClick={()=>setEditItem({setter:setWalks,item:w,title:"Modifica giro",fields:[{key:"date",label:"Data",type:"date"},{key:"mins",label:"Durata (min)",type:"number"},{key:"km",label:"Km",type:"number"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>del(setWalks,w.id)}>✕</Btn></div></div></Card>);}}/>
+      </div>)}
+
+      {/* ===== OBIETTIVI HUB ===== */}
+      {isSection("obiettivi")&&(<div>
+        {[
+          {id:"passeggiate",emoji:"🗺️",title:"Obiettivi Passeggiate",desc:"Km, giri, luoghi nuovi da scoprire",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",val:`${walkGoals.filter(g=>g.done).length}/${walkGoals.length} completati`},
+          {id:"addestramento",emoji:"🎓",title:"Addestramento",desc:"Comandi, sessioni e progressi",color:"#7C3AED",bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)",val:`${training.filter(t=>t.status==="appreso").length}/${COMMANDS.length} comandi appresi`},
+        ].map(s=>(<div key={s.id} onClick={()=>goSub(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
+          <div style={{flex:1}}><p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p><span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span></div>
+          <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
+        </div>))}
+      </div>)}
+
+      {/* OBIETTIVI PASSEGGIATE */}
+      {isSub("obiettivi","passeggiate")&&(<div>
+        <BackBtn onClick={()=>goSub(null)} label="← Obiettivi & Training"/>
+        {walkGoals.length>0&&(()=>{
+          const now=new Date();const mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()+6)%7));mon.setHours(0,0,0,0);
+          const ww=walks.filter(w=>w.date&&new Date(w.date+"T00:00:00")>=mon);
+          const wkm=ww.reduce((s,w)=>s+(+(w.km||0)),0);const upl=new Set(ww.flatMap(w=>w.placeIds||[])).size;
+          return(<Card style={{background:"linear-gradient(135deg,#dcfce7,#f0fdf4)",border:"1px solid #86efac",marginBottom:14}}>
+            <p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📊 Questa settimana</p>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>{[{l:"Giri",v:ww.length},{l:"Km",v:wkm.toFixed(1)},{l:"Luoghi",v:upl}].map(c=>(<div key={c.l} style={{background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}><p style={{fontSize:20,fontWeight:800,margin:0,color:"#166534"}}>{c.v}</p><p style={{fontSize:11,color:"#166534",margin:0,fontWeight:600}}>{c.l}</p></div>))}</div>
+          </Card>);
+        })()}
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Nuovo obiettivo</p>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Tipo</label>
+            {[{val:"km_week",label:"🏃 Km totali a settimana"},{val:"giri_week",label:"🔁 Giri a settimana"},{val:"luoghi_diversi",label:"📍 Luoghi da visitare"},{val:"posto_nuovo",label:"🌍 Posti nuovi"},{val:"durata",label:"⏱ Minuti/settimana"},{val:"custom",label:"✏️ Personalizzato"}].map(t=>(<label key={t.val} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${form.goalType===t.val?B.mid:B.border}`,background:form.goalType===t.val?B.bg:"white",cursor:"pointer",fontSize:14,marginBottom:6}}><input type="radio" name="gt" checked={form.goalType===t.val} onChange={()=>f("goalType",t.val)}/>{t.label}</label>))}
           </div>
-        )}
-
-        {/* FARMACI */}
-        {section==="meds"&&(
-          <div>
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi farmaco</p>
-              <Input label="Nome" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Antibiotico"/>
-              <Input label="Dose" value={form.dose||""} onChange={e=>f("dose",e.target.value)} placeholder="es. 1 compressa"/>
-              <Input label="Frequenza" value={form.freq||""} onChange={e=>f("freq",e.target.value)} placeholder="es. 2 volte al giorno"/>
-              <Input label="Inizio" type="date" value={form.start||today()} onChange={e=>f("start",e.target.value)}/>
-              <Input label="Fine (opzionale)" type="date" value={form.end||""} onChange={e=>f("end",e.target.value)}/>
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>⏰ Orario reminder</label><input type="time" value={form.reminderTime||""} onChange={e=>f("reminderTime",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff"}}/></div>
-              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
-              <Btn accent onClick={()=>{if(!form.name)return;addItem(setMeds,{...form,active:true,date:today()});}}>+ Aggiungi</Btn>
-            </Card>
-            {!notifEnabled&&(<div style={{background:"#fef9c3",border:"1px solid #fde047",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"#854d0e"}}>Attiva le notifiche per ricevere il reminder</span><Btn small onClick={enableNotifs}>Attiva</Btn></div>)}
-            {meds.length===0&&<Empty msg="Nessun farmaco registrato"/>}
-            {meds.map(m=>(
-              <Card key={m.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{m.name}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 6px"}}>{m.dose} — {m.freq}</p>{m.reminderTime&&<Tag color="warning">⏰ {m.reminderTime}</Tag>}<Tag color={m.active?"success":"secondary"}>{m.active?"Attivo":"Finito"}</Tag></div>
-                  <div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setMeds,item:m,title:"Modifica farmaco",fields:[{key:"name",label:"Nome"},{key:"dose",label:"Dose"},{key:"freq",label:"Frequenza"},{key:"start",label:"Inizio",type:"date"},{key:"end",label:"Fine",type:"date"},{key:"reminderTime",label:"Reminder",type:"time"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setMeds,m.id)}>✕</Btn></div>
-                </div>
-                <Btn small onClick={()=>setMeds(p=>p.map(x=>x.id===m.id?{...x,active:!x.active}:x))}>{m.active?"Segna finito":"Riattiva"}</Btn>
-              </Card>
-            ))}
+          {form.goalType&&form.goalType!=="luoghi_diversi"&&(<Inp label="Target" type={form.goalType==="custom"?"text":"number"} value={form.goalTarget||""} onChange={e=>f("goalTarget",e.target.value)} placeholder="es. 10"/>)}
+          {form.goalType==="luoghi_diversi"&&places.length>0&&(<div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi</label>{places.map(p=>(<label key={p.id} style={{display:"inline-flex",alignItems:"center",gap:6,marginRight:10,marginBottom:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.goalPlaces||[]).includes(p.id)} onChange={e=>{const c=form.goalPlaces||[];f("goalPlaces",e.target.checked?[...c,p.id]:c.filter(x=>x!==p.id));}}/>{p.emoji} {p.name}</label>))}</div>)}
+          <Inp label="Note" value={form.goalNotes||""} onChange={e=>f("goalNotes",e.target.value)} placeholder="opzionale"/>
+          <Btn accent onClick={()=>{if(!form.goalType)return;add(setWalkGoals,{type:form.goalType,target:form.goalTarget,places:form.goalPlaces,notes:form.goalNotes,done:false,createdAt:today()});}}>+ Aggiungi obiettivo</Btn>
+        </Card>
+        {walkGoals.length===0&&<Empty msg="Nessun obiettivo"/>}
+        {walkGoals.map(g=>{const tl={"km_week":"🏃 Km/sett","giri_week":"🔁 Giri/sett","luoghi_diversi":"📍 Luoghi","posto_nuovo":"🌍 Posti nuovi","durata":"⏱ Min/sett","custom":"✏️"};return(<Card key={g.id} style={{opacity:g.done?0.7:1}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p style={{fontWeight:700,margin:0,color:B.text}}>{tl[g.type]||g.type}</p>{g.done&&<Tag color="success">✓ Fatto</Tag>}</div>{g.target&&<p style={{fontSize:14,color:B.dark,margin:"0 0 4px"}}>Target: <strong>{g.target}</strong></p>}{g.places&&g.places.length>0&&<div style={{marginBottom:4}}>{g.places.map(pid=>{const p=places.find(x=>x.id===pid);return p?<Tag key={pid} color="info">{p.emoji} {p.name}</Tag>:null;})}</div>}{g.notes&&<p style={{fontSize:13,color:"#64748b",margin:0}}>{g.notes}</p>}</div>
+            <div style={{display:"flex",gap:4,marginLeft:8}}><Btn small onClick={()=>setWalkGoals(p=>p.map(x=>x.id===g.id?{...x,done:!x.done}:x))}>{g.done?"Riapri":"✓ Fatto"}</Btn><Btn small danger onClick={()=>del(setWalkGoals,g.id)}>✕</Btn></div>
           </div>
-        )}
+        </Card>);})}
+      </div>)}
 
-        {/* SOLO A CASA */}
-        {section==="alone"&&(
-          <div>
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Nuova sessione</p>
-              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Fascia oraria</label>
-                <div style={{display:"flex",gap:8}}>{FASCIA_OPTIONS.map(fas=>(<button key={fas} onClick={()=>f("fascia",fas)} style={{flex:1,padding:"9px 6px",borderRadius:12,border:`2px solid ${form.fascia===fas?B.mid:B.border}`,background:form.fascia===fas?B.bg:"white",cursor:"pointer",fontSize:13,fontWeight:600,color:form.fascia===fas?B.dark:"#64748b"}}>{fas}</button>))}</div>
-              </div>
-              <Input label="Durata (minuti)" type="number" value={form.mins||""} onChange={e=>f("mins",e.target.value)} placeholder="es. 90"/>
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Comportamenti osservati <span style={{fontSize:11,color:"#94a3b8",fontWeight:400}}>(ogni voce ha un peso nel punteggio)</span></label>
-                <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                  {ALONE_BEHAVIORS.map(b=>{
-                    const sel=(form.behaviors||[]).includes(b.id);
-                    const positive=b.pts>0;
-                    return(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",borderRadius:12,border:`1.5px solid ${sel?B.mid:B.border}`,background:sel?B.bg:"white",cursor:"pointer",fontSize:14,fontWeight:500}}>
-                      <input type="checkbox" checked={sel} onChange={e=>{const c=form.behaviors||[];f("behaviors",e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>
-                      <span style={{flex:1}}>{b.label}</span>
-                      <span style={{fontSize:11,fontWeight:700,color:positive?"#166534":"#b91c1c",background:positive?"#dcfce7":"#fee2e2",padding:"2px 7px",borderRadius:10}}>{b.pts>0?"+":""}{b.pts}</span>
-                    </label>);
-                  })}
-                </div>
-                {/* Live score preview */}
-                {(form.behaviors||[]).length>0&&(()=>{
-                  const sc=getAloneScore(form.behaviors||[]);
-                  const lbl=getAloneScoreLabel(sc);
-                  return(<div style={{marginTop:10,background:lbl.bg,borderRadius:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontWeight:700,color:lbl.color}}>{lbl.label}</span>
-                    <span style={{fontWeight:800,fontSize:20,color:lbl.color}}>{sc>0?"+":""}{sc} pt</span>
-                  </div>);
-                })()}
-              </div>
-              <div style={{marginBottom:12}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. Oggi sembrava più rilassato..." style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
-              <Btn accent onClick={()=>addItem(setAlones,{...form,behaviors:form.behaviors||[]})}>+ Salva sessione</Btn>
-            </Card>
-            {alones.length>0&&(()=>{
-              const avg=(alones.reduce((s,a)=>s+getAloneScore(a.behaviors||[]),0)/alones.length).toFixed(1);
-              return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Media punteggio",val:avg+" pt"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>);
-            })()}
-            {alones.length===0&&<Empty msg="Nessuna sessione registrata"/>}
-            <GroupedList
-              items={alones}
-              emptyMsg="Nessuna sessione registrata"
-              renderItem={a=>{
-                const sc=getAloneScore(a.behaviors||[]);
-                const lbl=getAloneScoreLabel(sc);
-                return(<Card key={a.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>{a.fascia&&<Tag color="info">{a.fascia}</Tag>}{a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}<span style={{fontSize:12,fontWeight:700,color:lbl.color,background:lbl.bg,padding:"2px 9px",borderRadius:10}}>{lbl.label} ({sc>0?"+":""}{sc})</span></div>{a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color={b.pts>0?"success":"danger"}>{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}{a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><EditPen onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia oraria",type:"select",options:FASCIA_OPTIONS.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:ALONE_BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn></div></div></Card>);
-              }}
-            />
+      {/* ADDESTRAMENTO */}
+      {isSub("obiettivi","addestramento")&&(<div>
+        <BackBtn onClick={()=>goSub(null)} label="← Obiettivi & Training"/>
+        {(()=>{const app=training.filter(t=>t.status==="appreso").length;const ic=training.filter(t=>t.status==="in corso").length;const pct=Math.round((app/COMMANDS.length)*100);return(<Card style={{background:"linear-gradient(135deg,#ede9fe,#ddd6fe)",border:"1px solid #c4b5fd",marginBottom:14}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><p style={{fontWeight:700,margin:0,color:"#7C3AED"}}>🎓 Progressi</p><span style={{fontWeight:800,fontSize:18,color:"#7C3AED"}}>{pct}%</span></div>
+          <div style={{height:10,background:"rgba(255,255,255,0.5)",borderRadius:5,overflow:"hidden",marginBottom:10}}><div style={{height:"100%",width:`${pct}%`,background:"#7C3AED",borderRadius:5}}/></div>
+          <div style={{display:"flex",gap:8}}>{[{l:"Appresi",v:app,c:"#166534",bg:"#dcfce7"},{l:"In corso",v:ic,c:"#854d0e",bg:"#fef9c3"},{l:"Da iniziare",v:COMMANDS.length-app-ic,c:"#475569",bg:"#f1f5f9"}].map(c=>(<div key={c.l} style={{flex:1,background:c.bg,borderRadius:8,padding:"6px",textAlign:"center"}}><p style={{fontSize:16,fontWeight:800,margin:0,color:c.c}}>{c.v}</p><p style={{fontSize:10,color:c.c,margin:0,fontWeight:600}}>{c.l}</p></div>))}</div>
+        </Card>);})()}
+        {COMMANDS.map(cmd=>(<CommandCard key={cmd.id} cmd={cmd} training={training} setTraining={setTraining} trainSessions={trainSessions} setTrainSessions={setTrainSessions}/>))}
+      </div>)}
+
+      {/* ===== DIARIO FOTO ===== */}
+      {isSection("photos")&&(<div>
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi foto</p>
+          <Inp label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
+          <Inp label="Luogo / occasione" value={form.place||""} onChange={e=>f("place",e.target.value)} placeholder="es. Parco della Villa"/>
+          <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Foto</label><input type="file" accept="image/*" onChange={e=>{const f2=e.target.files[0];if(f2)compress(f2,d=>setForm(p=>({...p,photoData:d})));}} style={{fontSize:13}}/></div>
+          {form.photoData&&<img src={form.photoData} style={{width:"100%",borderRadius:12,marginBottom:10,maxHeight:200,objectFit:"cover"}}/>}
+          <Inp label="Didascalia" value={form.caption||""} onChange={e=>f("caption",e.target.value)} placeholder="es. Prima passeggiata al mare!"/>
+          <Btn accent onClick={()=>{if(!form.photoData)return;add(setPhotos,form);}}>+ Aggiungi</Btn>
+        </Card>
+        {photos.length===0&&<Empty msg="Nessuna foto"/>}
+        {Object.entries(photosByMonth).map(([mk,mp])=>(<div key={mk}>
+          <div onClick={()=>setPhotoMonth(photoMonth===mk?null:mk)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:GRAD,borderRadius:14,marginBottom:8,cursor:"pointer",boxShadow:"0 2px 8px rgba(55,138,221,0.2)"}}>
+            <p style={{fontWeight:700,fontSize:15,color:"white",margin:0,textTransform:"capitalize"}}>{fmtM(mk+"-01")}</p>
+            <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{background:"rgba(255,255,255,0.25)",color:"white",fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:12}}>{mp.length}</span><span style={{color:"white",fontSize:16}}>{photoMonth===mk?"▲":"▼"}</span></div>
           </div>
-        )}
+          {(photoMonth===mk||photoMonth===null)&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            {mp.map(p=>(<div key={p.id} style={{background:"white",border:`1px solid ${B.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 3px 10px rgba(55,138,221,0.1)"}}>
+              <img src={p.photoData} style={{width:"100%",height:130,objectFit:"cover",display:"block"}}/>
+              <div style={{padding:"9px 11px"}}><p style={{fontSize:12,color:B.dark,margin:"0 0 2px",fontWeight:600}}>{fmt(p.date)}{p.place?` · ${p.place}`:""}</p>{p.caption&&<p style={{fontSize:12,color:"#64748b",margin:0}}>{p.caption}</p>}<div style={{display:"flex",gap:6,marginTop:5}}><Pen onClick={()=>setEditItem({setter:setPhotos,item:p,title:"Modifica foto",fields:[{key:"date",label:"Data",type:"date"},{key:"place",label:"Luogo"},{key:"caption",label:"Didascalia"}]})}/><button onClick={()=>del(setPhotos,p.id)} style={{fontSize:11,color:"#b91c1c",background:"none",border:"none",cursor:"pointer",padding:0}}>rimuovi</button></div></div>
+            </div>))}
+          </div>)}
+        </div>))}
+      </div>)}
 
-        {/* SALUTE HUB */}
-        {section==="salute"&&!saluteSection&&(
-          <div>
-            {[
-              {id:"weight",emoji:"⚖️",title:"Peso",desc:"Registra e monitora il peso nel tempo",color:"#378ADD",bg:"linear-gradient(135deg,#e8f4fd,#dbeeff)",val:latestWeight?latestWeight.kg+" kg":"—"},
-              {id:"vet",emoji:"💉",title:"Veterinario",desc:"Visite, vaccini e appuntamenti",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",val:vets.find(v=>v.next&&v.next>=today())?fmt(vets.find(v=>v.next&&v.next>=today()).next):"Nessuna"},
-              {id:"symptoms",emoji:"🩺",title:"Sintomi",desc:"Anomalie e sintomi da monitorare",color:"#E24B4A",bg:"linear-gradient(135deg,#fee2e2,#fecaca)",val:symptoms.filter(s=>s.severity==="grave").length>0?`⚠️ ${symptoms.filter(s=>s.severity==="grave").length} gravi`:`${symptoms.length} registrati`},
-            ].map(s=>(
-              <div key={s.id} onClick={()=>setSaluteSection(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
-                <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
-                <div style={{flex:1}}>
-                  <p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p>
-                  <p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p>
-                  <span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span>
-                </div>
-                <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
-              </div>
-            ))}
+      {/* ===== AMICI ===== */}
+      {isSection("friends")&&(<div>
+        {sortedFriends.length>0&&(<Card style={{background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",marginBottom:14}}>
+          <p style={{fontWeight:700,margin:"0 0 10px",color:"#854d0e"}}>🏆 Classifica affinità</p>
+          {sortedFriends.map((fr,i)=>{const sc=aScore(fr);const lb=aLabel(sc);return(<div key={fr.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderTop:i>0?"1px solid #fde047":"none"}}><span style={{fontSize:18,fontWeight:800,color:"#854d0e",minWidth:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>{fr.photo?<img src={fr.photo} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid #fde047"}}/>:<div style={{width:36,height:36,borderRadius:"50%",background:"#fde047",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🐕</div>}<div style={{flex:1}}><p style={{fontWeight:700,margin:0,fontSize:14,color:"#854d0e"}}>{fr.name}</p><div style={{height:6,background:"#fde047",borderRadius:3,marginTop:3,overflow:"hidden"}}><div style={{height:"100%",width:`${sc}%`,background:"#d97706",borderRadius:3}}/></div></div><div style={{textAlign:"right"}}><p style={{fontWeight:800,fontSize:16,margin:0,color:"#92400e"}}>{sc}</p><p style={{fontSize:10,color:"#92400e",margin:0}}>/100</p></div></div>);})}
+        </Card>)}
+        <Card>
+          <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi amico</p>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+            <div onClick={()=>friendRef.current?.click()} style={{width:64,height:64,borderRadius:"50%",border:`2px dashed ${B.border}`,overflow:"hidden",cursor:"pointer",background:B.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{form.friendPhoto?<img src={form.friendPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:28}}>🐕</span>}</div>
+            <Btn small onClick={()=>friendRef.current?.click()}>📷 Foto avatar</Btn>
           </div>
-        )}
-
-        {/* PESO */}
-        {section==="salute"&&saluteSection==="weight"&&(
-          <div>
-            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
-            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra peso</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Peso (kg)" type="number" step="0.1" value={form.kg||""} onChange={e=>f("kg",e.target.value)} placeholder="es. 12.5"/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.kg)return;addItem(setWeights,form);}}>+ Aggiungi</Btn></Card>
-            {weightChart.length>=2&&<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Andamento</p><LineChart data={weightChart} color={B.mid}/>{latestWeight&&<p style={{fontSize:13,color:B.dark,marginTop:6,textAlign:"right"}}>Peso attuale: <strong>{latestWeight.kg} kg</strong> ({fmt(latestWeight.date)})</p>}</Card>}
-            {weights.length===0&&<Empty msg="Nessun peso registrato"/>}
-            <GroupedList items={weightsSorted.slice().reverse()} emptyMsg="Nessun peso registrato" renderItem={w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso (kg)",type:"number"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></div></Card>)}/>
+          <Inp label="Nome del cane" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Fido"/><Inp label="Razza" value={form.breed||""} onChange={e=>f("breed",e.target.value)}/><Inp label="Proprietario" value={form.owner||""} onChange={e=>f("owner",e.target.value)}/><Inp label="Quanti cani" type="number" value={form.count||""} onChange={e=>f("count",e.target.value)} placeholder="es. 1"/>
+          <div style={{marginBottom:14}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Reazione di Nemo</label><div style={{display:"flex",gap:8}}>{REACT.map(r=>(<label key={r.val} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer",padding:"11px 4px",borderRadius:12,border:`2px solid ${form.reaction===r.val?B.mid:B.border}`,background:form.reaction===r.val?B.bg:"white"}}><input type="radio" name="reaction" value={r.val} checked={form.reaction===r.val} onChange={()=>f("reaction",r.val)} style={{display:"none"}}/><span style={{fontSize:26}}>{r.label.split(" ")[0]}</span><span style={{fontSize:12,color:B.dark,fontWeight:600}}>{r.label.split(" ")[1]}</span></label>))}</div></div>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:700}}>Parametri affinità (0–20)</label>
+            {AFFINITY.map(p=>(<div key={p.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><label style={{fontSize:13,color:B.dark,fontWeight:500}}>{p.label}</label><span style={{fontSize:13,fontWeight:700,color:B.mid}}>{form.affinity?.[p.id]||0}/20</span></div><input type="range" min={0} max={20} step={1} value={form.affinity?.[p.id]||0} onChange={e=>f("affinity",{...(form.affinity||{}),[p.id]:+e.target.value})} style={{width:"100%"}}/></div>))}
+            <div style={{background:B.bg,borderRadius:10,padding:"8px 12px",textAlign:"center"}}><span style={{fontWeight:800,fontSize:18,color:B.mid}}>{AFFINITY.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)}</span><span style={{fontSize:13,color:B.dark}}>/100 — {aLabel(AFFINITY.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)).label}</span></div>
           </div>
-        )}
-
-        {/* VET */}
-        {section==="salute"&&saluteSection==="vet"&&(
-          <div>
-            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
-            {vets.filter(v=>v.next&&v.next>=today()).length>0&&(<Card style={{background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:"1px solid #86efac"}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📅 Prossimi appuntamenti</p>{vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}><span style={{fontWeight:500}}>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:700}}>{fmt(v.next)}</span></div>))}</Card>)}
-            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi visita / vaccino</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/><Input label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/><Input label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/><Input label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.type)return;addItem(setVets,form);}}>+ Aggiungi</Btn></Card>
-            {vets.length===0&&<Empty msg="Nessuna visita registrata"/>}
-            <GroupedList items={vets} emptyMsg="Nessuna visita registrata" renderItem={v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo appuntamento",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn></div></div></Card>)}/>
+          <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} style={{width:"100%",minHeight:60,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
+          <Inp label="Data primo incontro" type="date" value={form.metDate||today()} onChange={e=>f("metDate",e.target.value)}/>
+          <Btn accent onClick={()=>{if(!form.name)return;add(setFriends,{...form,reaction:form.reaction||"neutro",photo:form.friendPhoto||null});}}>+ Aggiungi</Btn>
+        </Card>
+        {friends.length===0&&<Empty msg="Nessun amico"/>}
+        {sortedFriends.map(fr=>{const sc=aScore(fr);const lb=aLabel(sc);const rx=REACT.find(r=>r.val===fr.reaction)||REACT[1];return(<Card key={fr.id}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}>{fr.photo?<img src={fr.photo} style={{width:50,height:50,borderRadius:"50%",objectFit:"cover",border:`2px solid ${B.border}`}}/>:<div style={{width:50,height:50,borderRadius:"50%",background:B.bg,border:`2px solid ${B.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🐕</div>}<div><p style={{fontWeight:700,margin:0,color:B.text}}>{fr.name}{fr.breed?` · ${fr.breed}`:""}</p>{fr.owner&&<p style={{fontSize:13,color:"#64748b",margin:0}}>di {fr.owner}{fr.count&&fr.count>1?` · ${fr.count} cani`:""}</p>}</div></div>
+              <div style={{marginBottom:8}}><Tag color={rx.color}>{rx.label}</Tag></div>
+              <div style={{background:lb.bg,borderRadius:10,padding:"8px 12px",marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,fontWeight:700,color:lb.color}}>{lb.label}</span><span style={{fontSize:14,fontWeight:800,color:lb.color}}>{sc}/100</span></div><div style={{height:7,background:"rgba(0,0,0,0.1)",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${sc}%`,background:lb.color,borderRadius:4}}/></div></div>
+              {fr.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{fr.notes}</p></div>}
+            </div>
+            <div style={{display:"flex",gap:4,marginLeft:8}}><Pen onClick={()=>setEditItem({setter:setFriends,item:fr,title:"Modifica amico",fields:[{key:"name",label:"Nome"},{key:"breed",label:"Razza"},{key:"owner",label:"Proprietario"},{key:"count",label:"N° cani",type:"number"},{key:"reaction",label:"Reazione",type:"select",options:REACT.map(r=>({val:r.val,label:r.label}))},{key:"notes",label:"Note",type:"textarea"},{key:"metDate",label:"Data incontro",type:"date"}]})}/><Btn small danger onClick={()=>del(setFriends,fr.id)}>✕</Btn></div>
           </div>
-        )}
+        </Card>);})}
+      </div>)}
 
-        {/* SINTOMI */}
-        {section==="salute"&&saluteSection==="symptoms"&&(
-          <div>
-            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
-            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra sintomo</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Gravità</label><select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}><option value="lieve">Lieve</option><option value="moderata">Moderata</option><option value="grave">Grave</option></select></div><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.symptom)return;addItem(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn></Card>
-            {symptoms.length===0&&<Empty msg="Nessun sintomo registrato"/>}
-            <GroupedList items={symptoms} emptyMsg="Nessun sintomo registrato" renderItem={s=>(<Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn></div></div></Card>)}/>
-          </div>
-        )}
+      {/* ===== GRAFICI ===== */}
+      {isSection("charts")&&(<div>
+        <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Peso</p><Trend data={wChart}/></div>{wChart.length>=2?<LineChart data={wChart} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 pesate"/>}{weights.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Attuale",val:latestW?.kg+" kg"},{label:"Minimo",val:Math.min(...weights.map(w=>+w.kg))+" kg"},{label:"Massimo",val:Math.max(...weights.map(w=>+w.kg))+" kg"}].map(c=>(<div key={c.label} style={{flex:1,background:B.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:B.dark,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}</Card>
+        <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Solo a casa</p><Trend data={aChart}/></div>{aChart.length>=2?<LineChart data={aChart} color="#1D9E75}"/>:<Empty msg="Aggiungi almeno 2 sessioni"/>}</Card>
+        <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Passeggiate/mese</p>{walks.length>=2?<BarChart data={wpm()} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 giri"/>}</Card>
+        <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Sintomi frequenti</p>{symptoms.length>=2?<BarChart data={sbt()} color="#E24B4A"/>:<Empty msg="Aggiungi almeno 2 sintomi"/>}{symptoms.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Gravi",val:symptoms.filter(s=>s.severity==="grave").length,bg:"#fee2e2",tc:"#b91c1c"},{label:"Moderati",val:symptoms.filter(s=>s.severity==="moderata").length,bg:"#fef9c3",tc:"#854d0e"},{label:"Lievi",val:symptoms.filter(s=>s.severity==="lieve").length,bg:"#dcfce7",tc:"#166534"}].map(c=>(<div key={c.label} style={{flex:1,background:c.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:c.tc,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:c.tc}}>{c.val}</p></div>))}</div>)}</Card>
+        {friends.length>0&&(<Card><p style={{fontWeight:700,margin:"0 0 12px",color:B.text}}>🏆 Affinità amici</p>{sortedFriends.map(fr=>{const sc=aScore(fr);const lb=aLabel(sc);return(<div key={fr.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:13,fontWeight:600,color:B.text}}>{fr.name}</span><span style={{fontSize:13,fontWeight:800,color:lb.color}}>{sc}/100</span></div><div style={{height:10,background:B.bg,borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:`${sc}%`,background:B.mid,borderRadius:5}}/></div></div>);})}</Card>)}
+        {training.length>0&&(<Card><p style={{fontWeight:700,margin:"0 0 12px",color:B.text}}>🎓 Addestramento</p>{(()=>{const app=training.filter(t=>t.status==="appreso").length;const ic=training.filter(t=>t.status==="in corso").length;const pct=Math.round((app/COMMANDS.length)*100);return(<div><div style={{height:12,background:B.bg,borderRadius:6,overflow:"hidden",marginBottom:8}}><div style={{height:"100%",width:`${pct}%`,background:"#7C3AED",borderRadius:6}}/></div><div style={{display:"flex",gap:8}}>{[{l:"Appresi",v:app,c:"#166534",bg:"#dcfce7"},{l:"In corso",v:ic,c:"#854d0e",bg:"#fef9c3"},{l:"Da iniziare",v:COMMANDS.length-app-ic,c:"#475569",bg:"#f1f5f9"}].map(c=>(<div key={c.l} style={{flex:1,background:c.bg,borderRadius:8,padding:"6px",textAlign:"center"}}><p style={{fontSize:16,fontWeight:800,margin:0,color:c.c}}>{c.v}</p><p style={{fontSize:10,color:c.c,margin:0,fontWeight:600}}>{c.l}</p></div>))}</div></div>);})()}</Card>)}
+      </div>)}
 
-        {/* PASSEGGIATE */}
-        {section==="walks"&&(
-          <div>
-            <Card>
-              <p style={{fontWeight:700,marginBottom:10,color:B.text}}>Mappa luoghi preferiti</p>
-              <WalkMap places={places} onAddPlace={(lat,lng)=>setMapPending({lat,lng})}/>
-              {mapPending&&(<div style={{marginTop:12,padding:14,background:B.bg,borderRadius:12,border:`1.5px solid ${B.border}`}}><Input label="Nome luogo" value={form.placeName||""} onChange={e=>f("placeName",e.target.value)} placeholder="es. Parco Centrale"/><Input label="Note" value={form.placeNotes||""} onChange={e=>f("placeNotes",e.target.value)}/><div style={{marginBottom:10,display:"flex",flexWrap:"wrap",gap:7}}>{PLACE_EMOJIS.map(em=><button key={em} onClick={()=>f("placeEmoji",em)} style={{fontSize:22,padding:"5px 9px",borderRadius:10,border:`1.5px solid ${form.placeEmoji===em?B.mid:B.border}`,background:form.placeEmoji===em?B.bg:"white",cursor:"pointer"}}>{em}</button>)}</div><Btn accent onClick={()=>{if(!form.placeName)return;setPlaces(p=>[...p,{id:Date.now(),name:form.placeName,notes:form.placeNotes,lat:mapPending.lat,lng:mapPending.lng,emoji:form.placeEmoji||"📍"}]);setMapPending(null);setForm({});}}>Salva</Btn><Btn onClick={()=>{setMapPending(null);setForm({});}}>Annulla</Btn></div>)}
-            </Card>
-            {places.length>0&&(<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Luoghi ({places.length})</p>{places.map(p=>(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderTop:`1px solid ${B.bg}`}}><div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:22}}>{p.emoji}</span><p style={{fontWeight:500,margin:0,fontSize:14}}>{p.name}</p></div><Btn small danger onClick={()=>delItem(setPlaces,p.id)}>✕</Btn></div>))}</Card>)}
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra giro</p>
-              <Input label="Data" type="date" value={form.wDate||today()} onChange={e=>f("wDate",e.target.value)}/>
-              <Input label="Durata (min)" type="number" value={form.wMins||""} onChange={e=>f("wMins",e.target.value)}/>
-              <Input label="Km percorsi" type="number" step="0.1" value={form.wKm||""} onChange={e=>f("wKm",e.target.value)}/>
-              {places.length>0&&(
-                <div style={{marginBottom:12}}>
-                  <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi toccati</label>
-                  <select value="" onChange={e=>{if(e.target.value){const c=form.wPlaces||[];if(!c.includes(+e.target.value))f("wPlaces",[...c,+e.target.value]);}}} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14,marginBottom:8}}>
-                    <option value="">+ Seleziona luogo...</option>
-                    {places.filter(p=>!(form.wPlaces||[]).includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
-                  </select>
-                  {(form.wPlaces||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(form.wPlaces||[]).map(pid=>{const p=places.find(x=>x.id===pid);return p?<span key={pid} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:20,padding:"3px 10px",fontSize:13,display:"flex",alignItems:"center",gap:5}}>{p.emoji} {p.name}<button onClick={()=>f("wPlaces",(form.wPlaces||[]).filter(x=>x!==pid))} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#b91c1c",padding:0,marginLeft:2}}>✕</button></span>:null;})}</div>}
-                </div>
-              )}
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Umore</label><input type="range" min={1} max={5} step={1} value={form.wMood||3} onChange={e=>f("wMood",+e.target.value)} style={{width:"100%"}}/><span>{moodEmoji[form.wMood||3]} {moodLabel[form.wMood||3]}</span></div>
-              <Input label="Note" value={form.wNotes||""} onChange={e=>f("wNotes",e.target.value)}/>
-              <Btn accent onClick={()=>addItem(setWalks,{date:form.wDate||today(),mins:form.wMins,km:form.wKm,placeIds:form.wPlaces||[],mood:form.wMood||3,notes:form.wNotes})}>+ Salva giro</Btn>
-            </Card>
-            {walks.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Giri",val:walks.length},{label:"Km totali",val:walks.reduce((s,w)=>s+(+(w.km||0)),0).toFixed(1)},{label:"Ore totali",val:(walks.reduce((s,w)=>s+(+(w.mins||0)),0)/60).toFixed(1)+"h"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
-            {walks.length===0&&<Empty msg="Nessun giro registrato"/>}
-            <GroupedList items={walks} emptyMsg="Nessun giro registrato" renderItem={w=>{
-              const wps=places.filter(p=>(w.placeIds||[]).includes(p.id));
-              return(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(w.date)}</p><span>{moodEmoji[w.mood]}</span></div><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>{wps.length>0&&<div style={{marginBottom:4}}>{wps.map(p=><Tag key={p.id} color="info">{p.emoji} {p.name}</Tag>)}</div>}{w.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:0}}>{w.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWalks,item:w,title:"Modifica giro",fields:[{key:"date",label:"Data",type:"date"},{key:"mins",label:"Durata (min)",type:"number"},{key:"km",label:"Km",type:"number"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setWalks,w.id)}>✕</Btn></div></div></Card>);
-            }}/>
-          </div>
-        )}
-
-        {/* OBIETTIVI & TRAINING HUB */}
-        {section==="obiettivi"&&!obiSection&&(
-          <div>
-            {[
-              {id:"passeggiate",emoji:"🗺️",title:"Obiettivi Passeggiate",desc:"Km settimanali, luoghi nuovi, percorsi diversi",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",
-                val:(()=>{const done=walkGoals.filter(g=>g.done).length;return`${done}/${walkGoals.length} completati`;})()},
-              {id:"addestramento",emoji:"🎓",title:"Addestramento",desc:"Comandi, sessioni di training e progressi",color:"#7C3AED",bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)",
-                val:(()=>{const appresi=training.filter(t=>t.status==="appreso").length;return`${appresi}/${COMANDI_BASE.length} comandi appresi`;})()},
-            ].map(s=>(
-              <div key={s.id} onClick={()=>setObiSection(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
-                <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
-                <div style={{flex:1}}>
-                  <p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p>
-                  <p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p>
-                  <span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span>
-                </div>
-                <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* OBIETTIVI PASSEGGIATE */}
-        {section==="obiettivi"&&obiSection==="passeggiate"&&(
-          <div>
-            <button onClick={()=>setObiSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Obiettivi & Training</button>
-
-            {/* Stats passeggiate vs obiettivi */}
-            {walkGoals.length>0&&(
-              <Card style={{background:"linear-gradient(135deg,#dcfce7,#f0fdf4)",border:"1px solid #86efac",marginBottom:14}}>
-                <p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📊 Progressi questa settimana</p>
-                {(()=>{
-                  const now=new Date();const mon=new Date(now);mon.setDate(now.getDate()-now.getDay()+1);mon.setHours(0,0,0,0);
-                  const thisWeekWalks=walks.filter(w=>{const d=new Date(w.date+"T00:00:00");return d>=mon;});
-                  const weekKm=thisWeekWalks.reduce((s,w)=>s+(+(w.km||0)),0);
-                  const uniquePlaces=new Set(thisWeekWalks.flatMap(w=>w.placeIds||[])).size;
-                  return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                    {[{l:"Giri",v:thisWeekWalks.length},{l:"Km",v:weekKm.toFixed(1)},{l:"Luoghi",v:uniquePlaces}].map(c=>(<div key={c.l} style={{background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}><p style={{fontSize:20,fontWeight:800,margin:0,color:"#166534"}}>{c.v}</p><p style={{fontSize:11,color:"#166534",margin:0,fontWeight:600}}>{c.l}</p></div>))}
-                  </div>);
-                })()}
-              </Card>
-            )}
-
-            {/* Add goal */}
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Nuovo obiettivo passeggiata</p>
-              <div style={{marginBottom:10}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Tipo di obiettivo</label>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {[
-                    {val:"km_week",label:"🏃 Km totali a settimana",placeholder:"es. 10"},
-                    {val:"giri_week",label:"🔁 Giri a settimana",placeholder:"es. 5"},
-                    {val:"luoghi_diversi",label:"📍 Luoghi diversi da visitare",placeholder:"es. 3"},
-                    {val:"posto_nuovo",label:"🌍 Posti nuovi da scoprire",placeholder:"es. 2"},
-                    {val:"durata",label:"⏱ Minuti di cammino a settimana",placeholder:"es. 120"},
-                    {val:"custom",label:"✏️ Obiettivo personalizzato",placeholder:"descrivi l'obiettivo"},
-                  ].map(t=>(<label key={t.val} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${form.goalType===t.val?B.mid:B.border}`,background:form.goalType===t.val?B.bg:"white",cursor:"pointer",fontSize:14}}><input type="radio" name="goalType" checked={form.goalType===t.val} onChange={()=>f("goalType",t.val)} style={{accentColor:B.mid}}/>{t.label}</label>))}
-                </div>
-              </div>
-              {form.goalType&&form.goalType!=="luoghi_diversi"&&form.goalType!=="posto_nuovo"&&(
-                <Input label="Target" type={form.goalType==="custom"?"text":"number"} value={form.goalTarget||""} onChange={e=>f("goalTarget",e.target.value)} placeholder="Valore obiettivo"/>
-              )}
-              {form.goalType==="luoghi_diversi"&&(
-                <div style={{marginBottom:10}}>
-                  <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi da visitare (seleziona)</label>
-                  {places.map(p=>(<label key={p.id} style={{display:"inline-flex",alignItems:"center",gap:6,marginRight:10,marginBottom:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.goalPlaces||[]).includes(p.id)} onChange={e=>{const c=form.goalPlaces||[];f("goalPlaces",e.target.checked?[...c,p.id]:c.filter(x=>x!==p.id));}}/>{p.emoji} {p.name}</label>))}
-                </div>
-              )}
-              <Input label="Note / descrizione" value={form.goalNotes||""} onChange={e=>f("goalNotes",e.target.value)} placeholder="opzionale"/>
-              <Btn accent onClick={()=>{if(!form.goalType)return;addItem(setWalkGoals,{type:form.goalType,target:form.goalTarget,places:form.goalPlaces,notes:form.goalNotes,done:false,createdAt:today()});}}>+ Aggiungi obiettivo</Btn>
-            </Card>
-
-            {walkGoals.length===0&&<Empty msg="Nessun obiettivo impostato"/>}
-            {walkGoals.map(g=>{
-              const typeLabels={"km_week":"🏃 Km/settimana","giri_week":"🔁 Giri/settimana","luoghi_diversi":"📍 Luoghi da visitare","posto_nuovo":"🌍 Posti nuovi","durata":"⏱ Minuti/settimana","custom":"✏️ Personalizzato"};
-              return(<Card key={g.id} style={{opacity:g.done?0.7:1}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                      <p style={{fontWeight:700,margin:0,color:B.text}}>{typeLabels[g.type]||g.type}</p>
-                      {g.done&&<Tag color="success">✓ Completato</Tag>}
-                    </div>
-                    {g.target&&<p style={{fontSize:14,color:B.dark,margin:"0 0 4px"}}>Target: <strong>{g.target}</strong></p>}
-                    {g.places&&g.places.length>0&&<div style={{marginBottom:4}}>{g.places.map(pid=>{const p=places.find(x=>x.id===pid);return p?<Tag key={pid} color="info">{p.emoji} {p.name}</Tag>:null;})}</div>}
-                    {g.notes&&<p style={{fontSize:13,color:"#64748b",margin:0}}>{g.notes}</p>}
-                  </div>
-                  <div style={{display:"flex",gap:4,marginLeft:8}}>
-                    <Btn small onClick={()=>setWalkGoals(p=>p.map(x=>x.id===g.id?{...x,done:!x.done}:x))}>{g.done?"Riapri":"✓ Fatto"}</Btn>
-                    <Btn small danger onClick={()=>delItem(setWalkGoals,g.id)}>✕</Btn>
-                  </div>
-                </div>
-              </Card>);
-            })}
-          </div>
-        )}
-
-        {/* ADDESTRAMENTO */}
-        {section==="obiettivi"&&obiSection==="addestramento"&&(
-          <div>
-            <button onClick={()=>setObiSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Obiettivi & Training</button>
-
-            {/* Progress bar comandi */}
-            {(()=>{
-              const appresi=training.filter(t=>t.status==="appreso").length;
-              const inCorso=training.filter(t=>t.status==="in corso").length;
-              const pct=Math.round((appresi/COMANDI_BASE.length)*100);
-              return(
-                <Card style={{background:"linear-gradient(135deg,#ede9fe,#ddd6fe)",border:"1px solid #c4b5fd",marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <p style={{fontWeight:700,margin:0,color:"#7C3AED"}}>🎓 Progressi addestramento</p>
-                    <span style={{fontWeight:800,fontSize:18,color:"#7C3AED"}}>{pct}%</span>
-                  </div>
-                  <div style={{height:10,background:"rgba(255,255,255,0.5)",borderRadius:5,overflow:"hidden",marginBottom:10}}>
-                    <div style={{height:"100%",width:`${pct}%`,background:"#7C3AED",borderRadius:5,transition:"width 0.5s"}}/>
-                  </div>
-                  <div style={{display:"flex",gap:8}}>
-                    {[{l:"Appresi",v:appresi,c:"#166534",bg:"#dcfce7"},{l:"In corso",v:inCorso,c:"#854d0e",bg:"#fef9c3"},{l:"Da iniziare",v:COMANDI_BASE.length-appresi-inCorso,c:"#475569",bg:"#f1f5f9"}].map(c=>(<div key={c.l} style={{flex:1,background:c.bg,borderRadius:8,padding:"6px",textAlign:"center"}}><p style={{fontSize:16,fontWeight:800,margin:0,color:c.c}}>{c.v}</p><p style={{fontSize:10,color:c.c,margin:0,fontWeight:600}}>{c.l}</p></div>))}
-                  </div>
-                </Card>
-              );
-            })()}
-
-            {/* Comandi list */}
-            {COMANDI_BASE.map(cmd=>{
-              const t=training.find(x=>x.commandId===cmd.id)||{commandId:cmd.id,status:"da iniziare",sessions:[]};
-              const sessions=trainingSessions.filter(s=>s.commandId===cmd.id);
-              const [expanded,setExpanded]=useState(false);
-              const statusColors={"appreso":{bg:"#dcfce7",text:"#166534",border:"#86efac"},"in corso":{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},"da iniziare":{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}};
-              const sc=statusColors[t.status]||statusColors["da iniziare"];
-              const diff=Array(cmd.difficolta).fill("⭐").join("")+Array(4-cmd.difficolta).fill("☆").join("");
-              return(
-                <Card key={cmd.id} style={{border:`1.5px solid ${t.status==="appreso"?"#86efac":t.status==="in corso"?"#fde047":B.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>setExpanded(e=>!e)}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                        <span style={{fontSize:22}}>{cmd.emoji}</span>
-                        <div>
-                          <p style={{fontWeight:700,margin:0,color:B.text,fontSize:16}}>{cmd.nome}</p>
-                          <p style={{fontSize:12,color:"#64748b",margin:0}}>{diff} · {sessions.length} sessioni</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                      <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:10,background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`}}>{t.status}</span>
-                    </div>
-                  </div>
-
-                  {expanded&&(
-                    <div style={{marginTop:10,borderTop:`1px solid ${B.border}`,paddingTop:10}}>
-                      <div style={{background:B.bg,borderRadius:10,padding:"10px 12px",marginBottom:10}}>
-                        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 4px"}}>📖 Come insegnarlo</p>
-                        <p style={{fontSize:13,color:"#334155",margin:0,lineHeight:1.5}}>{cmd.come}</p>
-                      </div>
-
-                      {/* Cambia stato */}
-                      <div style={{display:"flex",gap:6,marginBottom:10}}>
-                        {["da iniziare","in corso","appreso"].map(s=>(<button key={s} onClick={()=>{const existing=training.find(x=>x.commandId===cmd.id);if(existing){setTraining(p=>p.map(x=>x.commandId===cmd.id?{...x,status:s}:x));}else{setTraining(p=>[...p,{commandId:cmd.id,status:s,sessions:[]}]);}}} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1.5px solid ${t.status===s?B.mid:B.border}`,background:t.status===s?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600,color:t.status===s?B.dark:"#64748b"}}>{s==="da iniziare"?"⬜ Da iniziare":s==="in corso"?"🔄 In corso":"✅ Appreso"}</button>))}
-                      </div>
-
-                      {/* Log sessione */}
-                      <div style={{background:"#f8fbff",borderRadius:10,padding:"10px 12px"}}>
-                        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 8px"}}>➕ Aggiungi sessione</p>
-                        <Input label="Data" type="date" value={form[`ts_date_${cmd.id}`]||today()} onChange={e=>f(`ts_date_${cmd.id}`,e.target.value)}/>
-                        <div style={{marginBottom:8}}>
-                          <label style={{fontSize:12,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Risultato</label>
-                          <div style={{display:"flex",gap:6}}>
-                            {["✅ Riuscito","🔄 Parziale","❌ Da rifare"].map(r=>(<button key={r} onClick={()=>f(`ts_result_${cmd.id}`,r)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1.5px solid ${form[`ts_result_${cmd.id}`]===r?B.mid:B.border}`,background:form[`ts_result_${cmd.id}`]===r?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600}}>{r}</button>))}
-                          </div>
-                        </div>
-                        <Input label="Note" value={form[`ts_note_${cmd.id}`]||""} onChange={e=>f(`ts_note_${cmd.id}`,e.target.value)} placeholder="es. Ci vuole ancora il premio..."/>
-                        <Btn small accent onClick={()=>{addItem(setTrainingSessions,{commandId:cmd.id,date:form[`ts_date_${cmd.id}`]||today(),result:form[`ts_result_${cmd.id}`]||"🔄 Parziale",notes:form[`ts_note_${cmd.id}`]||""});f(`ts_date_${cmd.id}`,null);f(`ts_result_${cmd.id}`,null);f(`ts_note_${cmd.id}`,null);}}>Salva sessione</Btn>
-                      </div>
-
-                      {/* Sessioni passate */}
-                      {sessions.length>0&&(
-                        <div style={{marginTop:10}}>
-                          <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 6px"}}>📋 Sessioni ({sessions.length})</p>
-                          {[...sessions].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,5).map(s=>(
-                            <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderTop:`1px solid ${B.bg}`,fontSize:13}}>
-                              <span style={{color:"#64748b"}}>{fmt(s.date)}</span>
-                              <span style={{fontWeight:600}}>{s.result}</span>
-                              {s.notes&&<span style={{color:"#94a3b8",fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.notes}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* DIARIO FOTO */}
-        {section==="photos"&&(
-          <div>
-            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi foto</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Luogo / occasione" value={form.place||""} onChange={e=>f("place",e.target.value)} placeholder="es. Parco della Villa"/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Foto</label><input type="file" accept="image/*" onChange={handlePhotoUpload} style={{fontSize:13}}/></div>{form.photoData&&<img src={form.photoData} style={{width:"100%",borderRadius:12,marginBottom:10,maxHeight:200,objectFit:"cover"}}/>}<Input label="Didascalia" value={form.caption||""} onChange={e=>f("caption",e.target.value)} placeholder="es. Prima passeggiata al mare!"/><Btn accent onClick={()=>{if(!form.photoData)return;addItem(setPhotos,form);}}>+ Aggiungi</Btn></Card>
-            {photos.length===0&&<Empty msg="Nessuna foto nel diario"/>}
-            {Object.entries(photosByMonth).map(([monthKey,monthPhotos])=>(
-              <div key={monthKey}>
-                <div onClick={()=>setPhotoMonth(photoMonth===monthKey?null:monthKey)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:GRAD,borderRadius:14,marginBottom:8,cursor:"pointer",boxShadow:"0 2px 8px rgba(55,138,221,0.2)"}}>
-                  <p style={{fontWeight:700,fontSize:15,color:"white",margin:0,textTransform:"capitalize"}}>{fmtMonth(monthKey+"-01")}</p>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{background:"rgba(255,255,255,0.25)",color:"white",fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:12}}>{monthPhotos.length} foto</span><span style={{color:"white",fontSize:16}}>{photoMonth===monthKey?"▲":"▼"}</span></div>
-                </div>
-                {(photoMonth===monthKey||photoMonth===null)&&(
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                    {monthPhotos.map(p=>(<div key={p.id} style={{background:"white",border:`1px solid ${B.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 3px 10px rgba(55,138,221,0.1)"}}><img src={p.photoData} style={{width:"100%",height:130,objectFit:"cover",display:"block"}}/><div style={{padding:"9px 11px"}}><p style={{fontSize:12,color:B.dark,margin:"0 0 2px",fontWeight:600}}>{fmt(p.date)}{p.place?` · ${p.place}`:""}</p>{p.caption&&<p style={{fontSize:12,color:"#64748b",margin:0}}>{p.caption}</p>}<div style={{display:"flex",gap:6,marginTop:5}}><EditPen onClick={()=>setEditItem({setter:setPhotos,item:p,title:"Modifica foto",fields:[{key:"date",label:"Data",type:"date"},{key:"place",label:"Luogo"},{key:"caption",label:"Didascalia"}]})}/><button onClick={()=>delItem(setPhotos,p.id)} style={{fontSize:11,color:"#b91c1c",background:"none",border:"none",cursor:"pointer",padding:0}}>rimuovi</button></div></div></div>))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* AMICI */}
-        {section==="friends"&&(
-          <div>
-            {sortedFriends.length>0&&(<Card style={{background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",marginBottom:14}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#854d0e"}}>🏆 Classifica affinità</p>{sortedFriends.map((fr,i)=>{const score=affinityScore(fr);const lbl=affinityLabel(score);return(<div key={fr.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderTop:i>0?"1px solid #fde047":"none"}}><span style={{fontSize:18,fontWeight:800,color:"#854d0e",minWidth:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>{fr.photo?<img src={fr.photo} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid #fde047"}}/>:<div style={{width:36,height:36,borderRadius:"50%",background:"#fde047",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🐕</div>}<div style={{flex:1}}><p style={{fontWeight:700,margin:0,fontSize:14,color:"#854d0e"}}>{fr.name}</p><div style={{height:6,background:"#fde047",borderRadius:3,marginTop:3,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:"#d97706",borderRadius:3}}/></div></div><div style={{textAlign:"right"}}><p style={{fontWeight:800,fontSize:16,margin:0,color:"#92400e"}}>{score}</p><p style={{fontSize:10,color:"#92400e",margin:0}}>/100</p></div></div>);})}
-            </Card>)}
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi amico</p>
-              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                <div onClick={()=>document.getElementById("friendPhotoInput").click()} style={{width:64,height:64,borderRadius:"50%",border:`2px dashed ${B.border}`,overflow:"hidden",cursor:"pointer",background:B.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{form.friendPhoto?<img src={form.friendPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:28}}>🐕</span>}</div>
-                <Btn small onClick={()=>document.getElementById("friendPhotoInput").click()}>📷 Foto avatar</Btn>
-                <input id="friendPhotoInput" type="file" accept="image/*" onChange={handleFriendPhoto} style={{display:"none"}}/>
-              </div>
-              <Input label="Nome del cane" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Fido"/>
-              <Input label="Razza" value={form.breed||""} onChange={e=>f("breed",e.target.value)}/>
-              <Input label="Proprietario" value={form.owner||""} onChange={e=>f("owner",e.target.value)}/>
-              <Input label="Quanti cani" type="number" value={form.count||""} onChange={e=>f("count",e.target.value)} placeholder="es. 1"/>
-              <div style={{marginBottom:14}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Reazione di Nemo</label><div style={{display:"flex",gap:8}}>{REACTION_OPTIONS.map(r=>(<label key={r.val} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer",padding:"11px 4px",borderRadius:12,border:`2px solid ${form.reaction===r.val?B.mid:B.border}`,background:form.reaction===r.val?B.bg:"white"}}><input type="radio" name="reaction" value={r.val} checked={form.reaction===r.val} onChange={()=>f("reaction",r.val)} style={{display:"none"}}/><span style={{fontSize:26}}>{r.label.split(" ")[0]}</span><span style={{fontSize:12,color:B.dark,fontWeight:600}}>{r.label.split(" ")[1]}</span></label>))}</div></div>
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:700}}>Parametri affinità (0–20 ciascuno)</label>
-                {AFFINITY_PARAMS.map(p=>(<div key={p.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><label style={{fontSize:13,color:B.dark,fontWeight:500}}>{p.label}</label><span style={{fontSize:13,fontWeight:700,color:B.mid}}>{form.affinity?.[p.id]||0}/20</span></div><input type="range" min={0} max={20} step={1} value={form.affinity?.[p.id]||0} onChange={e=>f("affinity",{...(form.affinity||{}),[p.id]:+e.target.value})} style={{width:"100%"}}/></div>))}
-                <div style={{background:B.bg,borderRadius:10,padding:"8px 12px",textAlign:"center"}}><span style={{fontWeight:800,fontSize:18,color:B.mid}}>{AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)}</span><span style={{fontSize:13,color:B.dark}}>/100 — {affinityLabel(AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)).label}</span></div>
-              </div>
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} style={{width:"100%",minHeight:60,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
-              <Input label="Data primo incontro" type="date" value={form.metDate||today()} onChange={e=>f("metDate",e.target.value)}/>
-              <Btn accent onClick={()=>{if(!form.name)return;addItem(setFriends,{...form,reaction:form.reaction||"neutro",photo:form.friendPhoto||null});}}>+ Aggiungi amico</Btn>
-            </Card>
-            {friends.length===0&&<Empty msg="Nessun amico registrato"/>}
-            {sortedFriends.map(fr=>{const score=affinityScore(fr);const lbl=affinityLabel(score);const rx=REACTION_OPTIONS.find(r=>r.val===fr.reaction)||REACTION_OPTIONS[1];return(<Card key={fr.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}>{fr.photo?<img src={fr.photo} style={{width:50,height:50,borderRadius:"50%",objectFit:"cover",border:`2px solid ${B.border}`}}/>:<div style={{width:50,height:50,borderRadius:"50%",background:B.bg,border:`2px solid ${B.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🐕</div>}<div><p style={{fontWeight:700,margin:0,color:B.text}}>{fr.name}{fr.breed?` · ${fr.breed}`:""}</p>{fr.owner&&<p style={{fontSize:13,color:"#64748b",margin:0}}>di {fr.owner}{fr.count&&fr.count>1?` · ${fr.count} cani`:""}</p>}</div></div><div style={{marginBottom:8}}><Tag color={rx.color}>{rx.label}</Tag></div><div style={{background:lbl.bg,borderRadius:10,padding:"8px 12px",marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,fontWeight:700,color:lbl.color}}>{lbl.label}</span><span style={{fontSize:14,fontWeight:800,color:lbl.color}}>{score}/100</span></div><div style={{height:7,background:"rgba(0,0,0,0.1)",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:lbl.color,borderRadius:4}}/></div></div>{fr.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{fr.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><EditPen onClick={()=>setEditItem({setter:setFriends,item:fr,title:"Modifica amico",fields:[{key:"name",label:"Nome"},{key:"breed",label:"Razza"},{key:"owner",label:"Proprietario"},{key:"count",label:"N° cani",type:"number"},{key:"reaction",label:"Reazione",type:"select",options:REACTION_OPTIONS.map(r=>({val:r.val,label:r.label}))},{key:"notes",label:"Note",type:"textarea"},{key:"metDate",label:"Data primo incontro",type:"date"}]})}/><Btn small danger onClick={()=>delItem(setFriends,fr.id)}>✕</Btn></div></div></Card>);})}
-          </div>
-        )}
-
-        {/* GRAFICI */}
-        {section==="charts"&&(
-          <div>
-            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Peso (ordine cronologico)</p><Trend data={weightChart}/></div>{weightChart.length>=2?<LineChart data={weightChart} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 pesate"/>}{weights.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Attuale",val:latestWeight?.kg+" kg"},{label:"Minimo",val:Math.min(...weights.map(w=>+w.kg))+" kg"},{label:"Massimo",val:Math.max(...weights.map(w=>+w.kg))+" kg"}].map(c=>(<div key={c.label} style={{flex:1,background:B.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:B.dark,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}</Card>
-            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Solo a casa — punteggio</p><Trend data={aloneChart}/></div>{aloneChart.length>=2?<LineChart data={aloneChart} color="#1D9E75"/>:<Empty msg="Aggiungi almeno 2 sessioni"/>}</Card>
-            <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Passeggiate per mese</p>{walks.length>=2?<BarChart data={walksPerMonth()} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 giri"/>}</Card>
-            <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Sintomi più frequenti</p>{symptoms.length>=2?<BarChart data={sympByType()} color="#E24B4A"/>:<Empty msg="Aggiungi almeno 2 sintomi"/>}{symptoms.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Gravi",val:symptoms.filter(s=>s.severity==="grave").length,bg:"#fee2e2",tc:"#b91c1c"},{label:"Moderati",val:symptoms.filter(s=>s.severity==="moderata").length,bg:"#fef9c3",tc:"#854d0e"},{label:"Lievi",val:symptoms.filter(s=>s.severity==="lieve").length,bg:"#dcfce7",tc:"#166534"}].map(c=>(<div key={c.label} style={{flex:1,background:c.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:c.tc,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:c.tc}}>{c.val}</p></div>))}</div>)}</Card>
-            {friends.length>0&&(<Card><p style={{fontWeight:700,margin:"0 0 12px",color:B.text}}>🏆 Affinità amici</p>{sortedFriends.map(fr=>{const score=affinityScore(fr);const lbl=affinityLabel(score);return(<div key={fr.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:13,fontWeight:600,color:B.text}}>{fr.name}</span><span style={{fontSize:13,fontWeight:800,color:lbl.color}}>{score}/100</span></div><div style={{height:10,background:B.bg,borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:B.mid,borderRadius:5}}/></div></div>);})}</Card>)}
-          </div>
-        )}
-
-      </div>
     </div>
-  );
+  </div>);
 }
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
