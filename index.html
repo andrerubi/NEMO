@@ -289,9 +289,7 @@ function App(){
   useEffect(()=>{if(saveEnabled.current)fbSave("photos",photos);},[photos]);
   useEffect(()=>{if(saveEnabled.current){fbSave("vets",vets);if(notifEnabled)scheduleVetReminders(vets);}},[vets]);
   useEffect(()=>{if(saveEnabled.current)fbSave("symptoms",symptoms);},[symptoms]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("training",training);},[training]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("trainingSessions",trainingSessions);},[trainingSessions]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("walkGoals",walkGoals);},[walkGoals]);
+  useEffect(()=>{if(saveEnabled.current)fbSave("friends",friends);},[friends]);
   useEffect(()=>{if(saveEnabled.current)fbSave("places",places);},[places]);
 
   // In-app reminder check
