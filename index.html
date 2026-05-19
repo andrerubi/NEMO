@@ -270,7 +270,7 @@ function App(){
     const init=()=>{
       const setters={dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces,training:setTraining,trainingSessions:setTrainingSessions,walkGoals:setWalkGoals};
       let loaded={};
-      const unsubs=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places","training","trainingSessions","walkGoals"].map(k=>fbListen(k,v=>{setters[k](v);loaded[k]=true;if(Object.keys(loaded).length>=KEYS.length){setTimeout(()=>{saveEnabled.current=true;setReady(true);},300);})));
+      const unsubs=KEYS.map(k=>fbListen(k,v=>{setters[k](v);loaded[k]=true;if(KEYS.every(key=>loaded[key])){setTimeout(()=>{saveEnabled.current=true;setReady(true);},300);}}));
       const timeout=setTimeout(()=>{saveEnabled.current=true;setReady(true);},4000);
       return()=>{unsubs.forEach(u=>u());clearTimeout(timeout);};
     };
