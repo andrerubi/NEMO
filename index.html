@@ -4,7 +4,10 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="Nemo"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='url(%23g)'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23378ADD'/%3E%3Cstop offset='100%25' stop-color='%23185FA5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cellipse cx='90' cy='105' rx='38' ry='30' fill='white' opacity='.9'/%3E%3Ccircle cx='58' cy='62' r='16' fill='white' opacity='.9'/%3E%3Ccircle cx='122' cy='62' r='16' fill='white' opacity='.9'/%3E%3Cellipse cx='42' cy='88' rx='13' ry='10' fill='white' opacity='.8'/%3E%3Cellipse cx='138' cy='88' rx='13' ry='10' fill='white' opacity='.8'/%3E%3C/svg%3E"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23378ADD'/%3E%3Cstop offset='100%25' stop-color='%23185FA5'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cellipse cx='32' cy='38' rx='14' ry='11' fill='white' opacity='.9'/%3E%3Ccircle cx='20' cy='22' r='6' fill='white' opacity='.9'/%3E%3Ccircle cx='44' cy='22' r='6' fill='white' opacity='.9'/%3E%3Cellipse cx='14' cy='32' rx='5' ry='4' fill='white' opacity='.8'/%3E%3Cellipse cx='50' cy='32' rx='5' ry='4' fill='white' opacity='.8'/%3E%3C/svg%3E"/>
 <title>Nemo 🐾</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -13,8 +16,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   const cfg={apiKey:"AIzaSyBr2Ai-vl4NxKunbQH0Q3Gr7nAbkhEuOjU",authDomain:"nemo-app-2ad96.firebaseapp.com",projectId:"nemo-app-2ad96",storageBucket:"nemo-app-2ad96.firebasestorage.app",messagingSenderId:"917177734551",appId:"1:917177734551:web:8d577a81886fdceceba0d2"};
-  const app=initializeApp(cfg);
-  const db=getFirestore(app);
+  const app=initializeApp(cfg);const db=getFirestore(app);
   window._db=db;window._setDoc=setDoc;window._doc=doc;window._onSnapshot=onSnapshot;window._fbReady=true;
   window.dispatchEvent(new Event("firebase-ready"));
 </script>
@@ -31,17 +33,52 @@ input[type=checkbox]{accent-color:#378ADD;}
 <div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useRef,useMemo}=React;
-const AUTH_CODE="1512";
 const KEYS=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places"];
 const B={bg:"#e8f4fd",bg2:"#dbeeff",border:"#b3d9f5",mid:"#378ADD",dark:"#185FA5",text:"#042C53"};
 const GRAD="linear-gradient(135deg,#378ADD 0%,#185FA5 100%)";
 
-async function fbSave(k,v){try{if(!window._db)return;await window._setDoc(window._doc(window._db,"nemo",k),{value:JSON.stringify(v)});}catch(e){console.warn(e);}}
+async function fbSave(k,v){try{if(!window._db)return;await window._setDoc(window._doc(window._db,"nemo",k),{value:JSON.stringify(v)});}catch(e){}}
 function fbListen(k,cb){if(!window._db)return()=>{};return window._onSnapshot(window._doc(window._db,"nemo",k),s=>{if(s.exists()){try{cb(JSON.parse(s.data().value));}catch(e){}}});}
+function compressImage(file,cb){const img=new Image(),r=new FileReader();r.onload=ev=>{img.onload=()=>{const c=document.createElement("canvas");const MAX=600;let w=img.width,h=img.height;if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);cb(c.toDataURL("image/jpeg",0.7));};img.src=ev.target.result;};r.readAsDataURL(file);}
 
-function compressImage(file,cb){
-  const img=new Image(),r=new FileReader();
-  r.onload=ev=>{img.onload=()=>{const c=document.createElement("canvas");const MAX=600;let w=img.width,h=img.height;if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);cb(c.toDataURL("image/jpeg",0.7));};img.src=ev.target.result;};r.readAsDataURL(file);
+// Service Worker for push notifications
+function registerSW(){
+  if(!('serviceWorker' in navigator)||!('Notification' in window))return;
+  const sw=`
+self.addEventListener('message',e=>{
+  if(e.data&&e.data.type==='SCHEDULE_NOTIF'){
+    const {title,body,delay}=e.data;
+    setTimeout(()=>{
+      self.registration.showNotification(title,{body,icon:'/icon.png',badge:'/icon.png',vibrate:[200,100,200]});
+    },delay);
+  }
+});
+self.addEventListener('notificationclick',e=>{e.notification.close();});
+`;
+  const blob=new Blob([sw],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).then(reg=>{window._swReg=reg;}).catch(()=>{});
+}
+function requestNotifPermission(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default') Notification.requestPermission();
+}
+function scheduleNotification(title,body,delayMs){
+  if(Notification.permission==='granted'&&window._swReg){
+    window._swReg.active?.postMessage({type:'SCHEDULE_NOTIF',title,body,delay:delayMs});
+  }
+}
+function scheduleDailyReminders(meds){
+  if(Notification.permission!=='granted')return;
+  const now=new Date();
+  meds.filter(m=>m.active&&m.reminderTime).forEach(m=>{
+    const [hh,mm]=m.reminderTime.split(':').map(Number);
+    const target=new Date(now);
+    target.setHours(hh,mm,0,0);
+    if(target<=now)target.setDate(target.getDate()+1);
+    const delay=target-now;
+    scheduleNotification(`💊 Farmaco per Nemo`,`È ora di dare: ${m.name} — ${m.dose}`,delay);
+  });
 }
 
 const PAW_POS=[{x:7,y:8,r:-20},{x:78,y:4,r:15},{x:52,y:22,r:-10},{x:18,y:40,r:25},{x:88,y:38,r:-30},{x:38,y:58,r:10},{x:8,y:72,r:-15},{x:68,y:76,r:20},{x:48,y:90,r:-5},{x:25,y:92,r:18},{x:90,y:88,r:-8}];
@@ -52,6 +89,7 @@ const Input=({label,...props})=>(<div style={{marginBottom:10}}>{label&&<label s
 const Btn=({onClick,children,danger,small,accent})=>(<button onClick={onClick} style={{fontSize:small?12:14,padding:small?"5px 12px":"9px 20px",background:danger?"#fee2e2":accent?GRAD:B.bg,color:danger?"#b91c1c":accent?"#fff":B.dark,border:`1.5px solid ${danger?"#fca5a5":accent?"transparent":B.border}`,borderRadius:10,cursor:"pointer",marginRight:6,marginBottom:4,fontWeight:600,boxShadow:accent?"0 3px 12px rgba(55,138,221,0.25)":"none"}}>{children}</button>);
 const Tag=({color,children})=>{const c={success:{bg:"#dcfce7",text:"#166534",border:"#86efac"},warning:{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},danger:{bg:"#fee2e2",text:"#b91c1c",border:"#fca5a5"},info:{bg:B.bg,text:B.dark,border:B.border},secondary:{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}}[color]||{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"};return <span style={{fontSize:12,padding:"3px 10px",borderRadius:20,background:c.bg,color:c.text,border:`1px solid ${c.border}`,marginRight:4,display:"inline-block",marginBottom:2,fontWeight:600}}>{children}</span>;};
 const Empty=({msg})=>(<div style={{textAlign:"center",padding:"2rem 0"}}><div style={{fontSize:32,marginBottom:8,opacity:0.35}}>🐾</div><p style={{color:"#94a3b8",fontSize:14}}>{msg}</p></div>);
+const EditPen=({onClick})=>(<button onClick={onClick} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>✏️</button>);
 
 const today=()=>new Date().toISOString().split("T")[0];
 const fmt=d=>d?new Date(d+"T00:00:00").toLocaleDateString("it-IT"):"";
@@ -61,11 +99,37 @@ const moodEmoji={1:"😞",2:"😕",3:"😐",4:"🙂",5:"😄"};
 const moodLabel={1:"Molto basso",2:"Basso",3:"Normale",4:"Buono",5:"Eccellente"};
 const REACTION_OPTIONS=[{val:"simpatico",label:"😊 Simpatico",color:"success"},{val:"neutro",label:"😐 Neutro",color:"warning"},{val:"ostile",label:"😠 Ostile",color:"danger"}];
 const PLACE_EMOJIS=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","🌿","🏟️","🌊"];
-const ALONE_BEHAVIORS=[{id:"divano",label:"😴 Tranquillo sul divano"},{id:"giocava",label:"🎾 Giocava / masticava"},{id:"abbaiava",label:"🔊 Abbaiava"},{id:"ululava",label:"🌕 Ululava"},{id:"agitato",label:"😰 Agitato"}];
-const SECTIONS=[{id:"home",label:"Profilo"},{id:"meds",label:"Farmaci"},{id:"alone",label:"Solo a casa"},{id:"weight",label:"Peso"},{id:"walks",label:"Passeggiate"},{id:"photos",label:"Diario foto"},{id:"vet",label:"Veterinario"},{id:"symptoms",label:"Sintomi"},{id:"friends",label:"Amici"},{id:"charts",label:"Grafici"},{id:"settings",label:"Impostazioni"}];
+
+  const ALONE_BEHAVIORS=[
+  {id:"divano",label:"😴 Tranquillo sul divano",pts:3},
+  {id:"giocava",label:"🎾 Giocava / masticava",pts:3},
+  {id:"dormiva",label:"💤 Dormiva",pts:4},
+  {id:"giardino",label:"🌿 Uscito in giardino",pts:2},
+  {id:"abbaiava",label:"🔊 Abbaiava",pts:-2},
+  {id:"ululava",label:"🌕 Ululava",pts:-3},
+  {id:"agitato",label:"😰 Agitato / ansioso",pts:-3},
+  {id:"danni",label:"💥 Ha fatto danni",pts:-4},
+  {id:"mangiato",label:"🍖 Ha mangiato regolarmente",pts:2},
+  {id:"nonmangiato",label:"🚫 Non ha mangiato",pts:-2},
+];
+
+const ALONE_SCORE_LABELS=[
+  {min:15,label:"🌟 Eccellente",color:"#166534",bg:"#dcfce7"},
+  {min:8,label:"😊 Molto bene",color:"#15803d",bg:"#f0fdf4"},
+  {min:3,label:"🙂 Abbastanza bene",color:"#854d0e",bg:"#fef9c3"},
+  {min:-2,label:"😐 Così così",color:"#9a3412",bg:"#fff7ed"},
+  {min:-99,label:"😟 Sessione difficile",color:"#b91c1c",bg:"#fee2e2"},
+];
+
+function getAloneScore(behaviors){
+  return(behaviors||[]).reduce((s,id)=>{const b=ALONE_BEHAVIORS.find(x=>x.id===id);return s+(b?b.pts:0);},0);
+}
+function getAloneScoreLabel(score){
+  return ALONE_SCORE_LABELS.find(l=>score>=l.min)||ALONE_SCORE_LABELS[ALONE_SCORE_LABELS.length-1];
+}
+
 const FASCIA_OPTIONS=["🌅 Mattino","☀️ Pomeriggio","🌙 Sera"];
 
-// Affinity params for friends
 const AFFINITY_PARAMS=[
   {id:"gioca",label:"Giocano insieme",max:20},
   {id:"vicino",label:"Sta vicino / si avvicina",max:20},
@@ -73,11 +137,7 @@ const AFFINITY_PARAMS=[
   {id:"cibo",label:"Condivide spazio cibo/acqua",max:20},
   {id:"rilassato",label:"Nemo è rilassato",max:20},
 ];
-
-function affinityScore(f){
-  if(!f.affinity)return 0;
-  return AFFINITY_PARAMS.reduce((s,p)=>s+(+(f.affinity[p.id]||0)),0);
-}
+function affinityScore(f){return!f.affinity?0:AFFINITY_PARAMS.reduce((s,p)=>s+(+(f.affinity[p.id]||0)),0);}
 function affinityLabel(score){
   if(score>=80)return{label:"🏆 Migliore amico",color:"#166534",bg:"#dcfce7"};
   if(score>=60)return{label:"💚 Molto affine",color:"#15803d",bg:"#f0fdf4"};
@@ -86,10 +146,37 @@ function affinityLabel(score){
   return{label:"😬 Non affine",color:"#b91c1c",bg:"#fee2e2"};
 }
 
+const SECTIONS=[
+  {id:"home",label:"Profilo"},
+  {id:"meds",label:"Farmaci"},
+  {id:"alone",label:"Solo a casa"},
+  {id:"salute",label:"Salute"},
+  {id:"walks",label:"Passeggiate"},
+  {id:"obiettivi",label:"Obiettivi & Training"},
+  {id:"photos",label:"Diario foto"},
+  {id:"friends",label:"Amici"},
+  {id:"charts",label:"Grafici"},
+  {id:"settings",label:"Impostazioni"},
+];
+
+// Training commands database
+const COMANDI_BASE=[
+  {id:"seduto",nome:"Seduto",emoji:"🪑",come:"Di' 'Seduto' con tono fermo. Tieni un premio sopra la sua testa finché si siede, poi premia subito.",difficolta:1},
+  {id:"fermo",nome:"Fermo",emoji:"✋",come:"Chiedi 'Seduto', poi apri il palmo verso di lui dicendo 'Fermo'. Allontanati di un passo, torna e premia se è rimasto.",difficolta:2},
+  {id:"vieni",nome:"Vieni / Richiamo",emoji:"🏃",come:"Accovacciati, apri le braccia e chiama il suo nome + 'Vieni!' con tono entusiasta. Premia sempre quando arriva.",difficolta:1},
+  {id:"terra",nome:"Terra / Giù",emoji:"⬇️",come:"Da 'Seduto', porta il premio verso il basso tra le zampe anteriori fino a che non si sdraia. Premia.",difficolta:2},
+  {id:"lascia",nome:"Lascia",emoji:"🚫",come:"Mostra un premio in pugno chiuso. Quando smette di annusare e si allontana, apri il pugno e premia con l'altro.",difficolta:3},
+  {id:"prendilo",nome:"Prendilo",emoji:"🎾",come:"Lancia un oggetto dicendo 'Prendilo'. Inizia a distanza corta e premia se lo porta indietro.",difficolta:2},
+  {id:"posto",nome:"Al posto",emoji:"🛏️",come:"Indica la sua cuccia dicendo 'Al posto'. Porta un premio verso di essa. Premia quando ci sale sopra.",difficolta:3},
+  {id:"zampa",nome:"Zampa / Dai cinque",emoji:"🤝",come:"Chiedi 'Seduto', poi tieni un premio in pugno a altezza zampa. Quando gratta il pugno, apri e premia.",difficolta:2},
+  {id:"gira",nome:"Gira",emoji:"🔄",come:"Con un premio in mano, traccia un cerchio intorno alla sua testa in senso orario dicendo 'Gira'. Premia dopo il cerchio completo.",difficolta:3},
+  {id:"saluta",nome:"Saluta",emoji:"👋",come:"Da 'Terra', tieni un premio sopra di lui finché si alza sulle zampe posteriori. Di' 'Saluta' e premia.",difficolta:4},
+];
+
 function LineChart({data,color="#378ADD"}){
   if(!data||data.length<2)return <Empty msg="Servono almeno 2 dati"/>;
   const W=500,H=120,PAD=32;
-  const sorted=[...data].sort((a,b)=>a.dateKey?.localeCompare(b.dateKey||"")||0);
+  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
   const vals=sorted.map(d=>d.val);
   const max=Math.max(...vals),min=Math.min(...vals),range=max-min||1;
   const pts=sorted.map((d,i)=>({x:PAD+(i/(sorted.length-1))*(W-PAD*2),y:PAD+((max-d.val)/range)*(H-PAD*2),label:d.label}));
@@ -99,18 +186,18 @@ function LineChart({data,color="#378ADD"}){
 }
 function BarChart({data,color="#378ADD"}){
   if(!data||data.length===0)return <Empty msg="Nessun dato"/>;
+  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
   const W=500,H=110,PAD=28;
-  const sorted=[...data].sort((a,b)=>a.dateKey?.localeCompare(b.dateKey||"")||0);
   const max=Math.max(...sorted.map(d=>d.val),1);
   const bw=Math.min(38,(W-PAD*2)/sorted.length-6);
   return(<svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>{sorted.map((d,i)=>{const bh=((d.val/max)*(H-PAD-10));const x=PAD+i*((W-PAD*2)/sorted.length)+((W-PAD*2)/sorted.length-bw)/2;const y=H-PAD-bh;return(<g key={i}><rect x={x} y={y} width={bw} height={bh} rx="5" fill={color} fillOpacity="0.75"/><text x={x+bw/2} y={y-3} fontSize="9" fill={B.dark} textAnchor="middle">{d.val}</text><text x={x+bw/2} y={H-2} fontSize="9" fill={B.dark} textAnchor="middle">{d.label}</text></g>);})} </svg>);
 }
 function Trend({data}){
   if(!data||data.length<2)return null;
-  const sorted=[...data].sort((a,b)=>a.dateKey?.localeCompare(b.dateKey||"")||0);
+  const sorted=[...data].sort((a,b)=>(a.dateKey||"").localeCompare(b.dateKey||""));
   const diff=sorted[sorted.length-1].val-sorted[sorted.length-2].val;
   if(diff===0)return <Tag color="secondary">= stabile</Tag>;
-  return <Tag color={diff>0?"success":"danger"}>{diff>0?"↑ miglioramento":"↓ peggioramento"}</Tag>;
+  return <Tag color={diff>0?"success":"danger"}>{diff>0?"↑ in aumento":"↓ in calo"}</Tag>;
 }
 
 function WalkMap({places,onAddPlace}){
@@ -122,14 +209,6 @@ function WalkMap({places,onAddPlace}){
   return(<div><div ref={mapRef} style={{width:"100%",height:240,borderRadius:14,overflow:"hidden",border:`1.5px solid ${B.border}`}}/><div style={{marginTop:8}}><Btn small onClick={()=>setClicking(c=>!c)}>{clicking?"✓ Clicca sulla mappa...":"📍 Aggiungi luogo"}</Btn></div></div>);
 }
 
-function Login({onLogin}){
-  const [p,setP]=useState(""),[err,setErr]=useState(false),[loading,setLoading]=useState(false);
-  const submit=()=>{setLoading(true);setTimeout(()=>{if(p===AUTH_CODE){onLogin();}else{setErr(true);setTimeout(()=>setErr(false),2000);}setLoading(false);},400);};
-  return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"linear-gradient(160deg,#cce8ff 0%,#e8f4fd 50%,#f0f8ff 100%)"}}><PawBg/><div style={{position:"relative",zIndex:1,width:"100%",maxWidth:320}}><div style={{textAlign:"center",marginBottom:32}}><div style={{width:90,height:90,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(55,138,221,0.35)"}}><span style={{fontSize:44}}>🐾</span></div><p style={{fontWeight:900,fontSize:30,color:B.text,margin:"0 0 4px",letterSpacing:"-0.5px"}}>Nemo</p><p style={{fontSize:14,color:B.dark,margin:0,fontWeight:500}}>Diario di salute · Kika & Rubi</p></div><Card style={{borderRadius:22,padding:"1.5rem"}}><p style={{fontSize:13,color:B.dark,fontWeight:700,textAlign:"center",marginBottom:16,textTransform:"uppercase",letterSpacing:"1px"}}>Inserisci il codice</p><input value={p} onChange={e=>setP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} type="password" placeholder="• • • •" maxLength={4} style={{width:"100%",borderRadius:14,border:`2px solid ${err?"#fca5a5":p.length===4?"#86efac":B.border}`,padding:"14px 12px",fontSize:28,background:"#f8fbff",textAlign:"center",letterSpacing:12,outline:"none"}}/>{err&&<p style={{color:"#b91c1c",fontSize:13,textAlign:"center",marginTop:8,fontWeight:500}}>Codice non corretto</p>}<button onClick={submit} disabled={loading} style={{width:"100%",marginTop:16,padding:"13px",background:GRAD,color:"white",border:"none",borderRadius:12,fontSize:16,fontWeight:700,cursor:"pointer",boxShadow:"0 4px 16px rgba(55,138,221,0.35)",opacity:loading?0.7:1}}>{loading?"...":"Accedi"}</button></Card><p style={{textAlign:"center",fontSize:12,color:B.dark,marginTop:16,opacity:0.5}}>Accesso privato 🔒</p></div></div>);
-}
-function LoadingScreen(){return(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#cce8ff 0%,#f0f8ff 100%)"}}><PawBg/><div style={{position:"relative",zIndex:1,textAlign:"center"}}><div style={{width:80,height:80,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(55,138,221,0.3)"}}><span style={{fontSize:38}}>🐾</span></div><p style={{fontWeight:800,fontSize:22,color:B.text,margin:"0 0 8px"}}>Nemo</p><p style={{fontSize:14,color:B.dark,opacity:0.7}}>Caricamento in corso...</p></div></div>);}
-
-// Generic edit modal
 function EditModal({item,fields,onSave,onClose,title}){
   const [data,setData]=useState({...item});
   const fd=(k,v)=>setData(p=>({...p,[k]:v}));
@@ -141,10 +220,10 @@ function EditModal({item,fields,onSave,onClose,title}){
           <button onClick={onClose} style={{background:B.bg,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:16}}>✕</button>
         </div>
         {fields.map(field=>{
-          if(field.type==="select"){return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><select value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}>{field.options.map(o=><option key={o.val||o} value={o.val||o}>{o.label||o}</option>)}</select></div>);}
-          if(field.type==="textarea"){return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><textarea value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>);}
-          if(field.type==="range"){return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type="range" min={field.min||1} max={field.max||5} step={1} value={data[field.key]||field.min||1} onChange={e=>fd(field.key,+e.target.value)} style={{width:"100%"}}/><span style={{fontSize:13}}>{moodEmoji[data[field.key]||3]} {moodLabel[data[field.key]||3]}</span></div>);}
-          if(field.type==="checkboxes"){return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>{field.label}</label>{field.options.map(b=>(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${(data[field.key]||[]).includes(b.id)?B.mid:B.border}`,background:(data[field.key]||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14,marginBottom:6}}><input type="checkbox" checked={(data[field.key]||[]).includes(b.id)} onChange={e=>{const c=data[field.key]||[];fd(field.key,e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}</label>))}</div>);}
+          if(field.type==="select")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><select value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}>{field.options.map(o=><option key={o.val||o} value={o.val||o}>{o.label||o}</option>)}</select></div>);
+          if(field.type==="textarea")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><textarea value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>);
+          if(field.type==="range")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type="range" min={field.min||1} max={field.max||5} step={1} value={data[field.key]||field.min||1} onChange={e=>fd(field.key,+e.target.value)} style={{width:"100%"}}/><span style={{fontSize:13}}>{moodEmoji[data[field.key]||3]} {moodLabel[data[field.key]||3]}</span></div>);
+          if(field.type==="checkboxes")return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>{field.label}</label>{field.options.map(b=>(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${(data[field.key]||[]).includes(b.id)?B.mid:B.border}`,background:(data[field.key]||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14,marginBottom:6}}><input type="checkbox" checked={(data[field.key]||[]).includes(b.id)} onChange={e=>{const c=data[field.key]||[];fd(field.key,e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}</label>))}</div>);
           return(<div key={field.key} style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>{field.label}</label><input type={field.type||"text"} value={data[field.key]||""} onChange={e=>fd(field.key,e.target.value)} placeholder={field.placeholder||""} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",fontSize:14,background:"#f8fbff",outline:"none"}}/></div>);
         })}
         <Btn accent onClick={()=>{onSave(data);onClose();}}>Salva modifiche</Btn>
@@ -153,12 +232,11 @@ function EditModal({item,fields,onSave,onClose,title}){
   );
 }
 
-function App(){
-  const [loggedIn,setLoggedIn]=useState(true);
-  const handleLogin=()=>{setLoggedIn(true);};
-  if(!loggedIn)return <Login onLogin={handleLogin}/>;
+function LoadingScreen(){return(<div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"linear-gradient(160deg,#cce8ff 0%,#f0f8ff 100%)"}}><PawBg/><div style={{position:"relative",zIndex:1,textAlign:"center"}}><div style={{width:80,height:80,borderRadius:"50%",background:GRAD,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",boxShadow:"0 8px 24px rgba(55,138,221,0.3)"}}><span style={{fontSize:38}}>🐾</span></div><p style={{fontWeight:800,fontSize:22,color:B.text,margin:"0 0 8px"}}>Nemo</p><p style={{fontSize:14,color:B.dark,opacity:0.7}}>Caricamento in corso...</p></div></div>);}
 
+function App(){
   const [section,setSection]=useState("home");
+  const [saluteSection,setSaluteSection]=useState(null); // "weight"|"vet"|"symptoms"
   const [menuOpen,setMenuOpen]=useState(false);
   const [dog,setDog]=useState({name:"",breed:"",dob:"",chip:""});
   const [dogPhoto,setDogPhoto]=useState(null);
@@ -176,11 +254,17 @@ function App(){
   const [form,setForm]=useState({});
   const [mapPending,setMapPending]=useState(null);
   const [editItem,setEditItem]=useState(null);
-  const [photoMonth,setPhotoMonth]=useState(null);
-  const photoInputRef=useRef(null);
+  const [training,setTraining]=useState([]);   // {commandId, status:"appreso"|"in corso"|"da iniziare", sessions:[{date,notes,riuscito}], goal:bool}
+  const [trainingSessions,setTrainingSessions]=useState([]); // log sessioni
+  const [walkGoals,setWalkGoals]=useState([]);  // obiettivi passeggiate
+  const [obiSection,setObiSection]=useState(null); // "passeggiate"|"addestramento"
+  const [notifEnabled,setNotifEnabled]=useState(Notification?.permission==="granted");
   const dogPhotoInputRef=useRef(null);
+  const photoInputRef=useRef(null);
   const timerRef=useRef(null);
   const saveEnabled=useRef(false);
+
+  useEffect(()=>{registerSW();},[]);
 
   useEffect(()=>{
     const init=()=>{
@@ -198,89 +282,84 @@ function App(){
 
   useEffect(()=>{if(saveEnabled.current)fbSave("dog",dog);},[dog]);
   useEffect(()=>{if(saveEnabled.current)fbSave("dogPhoto",dogPhoto);},[dogPhoto]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("meds",meds);},[meds]);
+  useEffect(()=>{if(saveEnabled.current){fbSave("meds",meds);if(notifEnabled)scheduleDailyReminders(meds);}},[meds]);
   useEffect(()=>{if(saveEnabled.current)fbSave("alones",alones);},[alones]);
   useEffect(()=>{if(saveEnabled.current)fbSave("weights",weights);},[weights]);
   useEffect(()=>{if(saveEnabled.current)fbSave("walks",walks);},[walks]);
   useEffect(()=>{if(saveEnabled.current)fbSave("photos",photos);},[photos]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("vets",vets);},[vets]);
+  useEffect(()=>{if(saveEnabled.current){fbSave("vets",vets);if(notifEnabled)scheduleVetReminders(vets);}},[vets]);
   useEffect(()=>{if(saveEnabled.current)fbSave("symptoms",symptoms);},[symptoms]);
   useEffect(()=>{if(saveEnabled.current)fbSave("friends",friends);},[friends]);
   useEffect(()=>{if(saveEnabled.current)fbSave("places",places);},[places]);
 
-  useEffect(()=>{const check=()=>{const now=new Date().toTimeString().slice(0,5),td=today();meds.forEach(m=>{if(!m.active||!m.reminderTime)return;if(m.reminderTime===now&&(!m.lastReminderDate||m.lastReminderDate!==td)){setReminder(m);setMeds(p=>p.map(x=>x.id===m.id?{...x,lastReminderDate:td}:x));}});};timerRef.current=setInterval(check,30000);check();return()=>clearInterval(timerRef.current);},[meds]);
+  // In-app reminder check
+  useEffect(()=>{
+    const check=()=>{
+      const now=new Date().toTimeString().slice(0,5),td=today();
+      meds.forEach(m=>{if(!m.active||!m.reminderTime)return;if(m.reminderTime===now&&(!m.lastReminderDate||m.lastReminderDate!==td)){setReminder(m);setMeds(p=>p.map(x=>x.id===m.id?{...x,lastReminderDate:td}:x));}});
+    };
+    timerRef.current=setInterval(check,30000);check();
+    return()=>clearInterval(timerRef.current);
+  },[meds]);
 
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
   const addItem=(setter,item)=>{setter(p=>[{...item,id:Date.now()},...p]);setForm({});};
   const delItem=(setter,id)=>setter(p=>p.filter(x=>x.id!==id));
   const updateItem=(setter,id,data)=>setter(p=>p.map(x=>x.id===id?{...x,...data}:x));
-  const goTo=id=>{setSection(id);setMenuOpen(false);setForm({});setMapPending(null);setEditItem(null);};
-
+  const goTo=id=>{setSection(id);setMenuOpen(false);setForm({});setMapPending(null);setEditItem(null);setSaluteSection(null);};
   const handleDogPhoto=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>setDogPhoto(data));};
   const handlePhotoUpload=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>f("photoData",data));};
   const handleFriendPhoto=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>f("friendPhoto",data));};
-  const handleFriendPhotoEdit=e=>{const file=e.target.files[0];if(!file)return;compressImage(file,data=>{if(editItem){setEditItem(p=>({...p,item:{...p.item,photo:data}}));}});};
 
-  // Chart data
-  const weightChart=[...weights].sort((a,b)=>a.date?.localeCompare(b.date)).slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5),dateKey:w.date}));
-  const aloneChart=[...alones].sort((a,b)=>a.date?.localeCompare(b.date)).slice(-12).map(a=>({val:+a.score,label:fmt(a.date).slice(0,5),dateKey:a.date}));
+  const enableNotifs=async()=>{
+    const perm=await Notification.requestPermission();
+    if(perm==="granted"){setNotifEnabled(true);scheduleDailyReminders(meds);}
+  };
+
+  // Data helpers
+  const weightsSorted=useMemo(()=>[...weights].sort((a,b)=>(a.date||"").localeCompare(b.date||"")),[weights]);
+  const latestWeight=weightsSorted[weightsSorted.length-1];
+  const weightChart=weightsSorted.slice(-12).map(w=>({val:+w.kg,label:fmt(w.date).slice(0,5),dateKey:w.date}));
+  const aloneChart=[...alones].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).slice(-12).map(a=>({val:getAloneScore(a.behaviors),label:fmt(a.date).slice(0,5),dateKey:a.date}));
   const walksPerMonth=()=>{const c={};[...walks].forEach(w=>{const m=w.date?.slice(0,7)||"";c[m]=(c[m]||0)+1;});return Object.entries(c).sort().slice(-6).map(([m,v])=>({val:v,label:m.slice(5),dateKey:m}));};
   const sympByType=()=>{const c={};symptoms.forEach(s=>{c[s.symptom]=(c[s.symptom]||0)+1;});return Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({val:v,label:k.slice(0,8)}));};
   const NAV_SECTIONS=SECTIONS.filter(s=>s.id!=="settings");
-
-  // Photos grouped by month
-  const photosByMonth=useMemo(()=>{
-    const groups={};
-    [...photos].sort((a,b)=>b.date?.localeCompare(a.date||"")||0).forEach(p=>{
-      const key=p.date?p.date.slice(0,7):"";
-      if(!groups[key])groups[key]=[];
-      groups[key].push(p);
-    });
-    return groups;
-  },[photos]);
-
+  const photosByMonth=useMemo(()=>{const groups={};[...photos].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).forEach(p=>{const key=p.date?p.date.slice(0,7):"";if(!groups[key])groups[key]=[];groups[key].push(p);});return groups;},[photos]);
   const randomPhoto=useMemo(()=>{if(!photos||photos.length===0)return null;return photos[Math.floor(Math.random()*photos.length)];},[photos.length]);
-
-  // Friends sorted by affinity
   const sortedFriends=useMemo(()=>[...friends].sort((a,b)=>affinityScore(b)-affinityScore(a)),[friends]);
 
   if(!ready)return <LoadingScreen/>;
 
+  // Shared header
+  const Header=()=>(
+    <div style={{background:GRAD,borderRadius:"0 0 28px 28px",padding:"16px 18px 18px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 24px rgba(24,95,165,0.28)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:14}}>
+        <div onClick={()=>dogPhotoInputRef.current?.click()} style={{width:52,height:52,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.85)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:26}}>🐶</span>}
+        </div>
+        <input ref={dogPhotoInputRef} type="file" accept="image/*" onChange={handleDogPhoto} style={{display:"none"}}/>
+        <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{display:"none"}}/>
+        <div>
+          <p style={{fontWeight:800,fontSize:18,margin:0,color:"white"}}>{dog.name||"Nemo"}</p>
+          <p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={()=>goTo("settings")} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 12px",cursor:"pointer",color:"white",fontSize:18,lineHeight:1}}>⚙️</button>
+        <div style={{position:"relative"}}>
+          <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 14px",cursor:"pointer",color:"white",fontSize:17,fontWeight:700}}>☰</button>
+          {menuOpen&&(<div style={{position:"absolute",right:0,top:48,background:"white",borderRadius:18,border:`1px solid ${B.border}`,boxShadow:"0 16px 48px rgba(55,138,221,0.2)",zIndex:100,minWidth:210,overflow:"hidden"}}>{NAV_SECTIONS.map((s,i)=>(<button key={s.id} onClick={()=>goTo(s.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"13px 18px",background:section===s.id?B.bg:"white",color:section===s.id?B.dark:"#334155",border:"none",borderBottom:i<NAV_SECTIONS.length-1?`1px solid ${B.bg}`:"none",cursor:"pointer",fontSize:14,fontWeight:section===s.id?700:400}}>{s.label}{section===s.id&&<span style={{color:B.mid,fontSize:13,fontWeight:700}}>✓</span>}</button>))}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+
   return(
     <div style={{maxWidth:680,margin:"0 auto",padding:"0 0 2rem",minHeight:"100vh"}}>
       <PawBg/>
-      {editItem&&(
-        <EditModal
-          item={editItem.item}
-          fields={editItem.fields}
-          title={editItem.title}
-          onSave={data=>updateItem(editItem.setter,editItem.item.id,data)}
-          onClose={()=>setEditItem(null)}
-        />
-      )}
+      {editItem&&(<EditModal item={editItem.item} fields={editItem.fields} title={editItem.title} onSave={data=>updateItem(editItem.setter,editItem.item.id,data)} onClose={()=>setEditItem(null)}/>)}
       <div style={{position:"relative",zIndex:1}}>
-
-        {/* HEADER */}
-        <div style={{background:GRAD,borderRadius:"0 0 28px 28px",padding:"16px 18px 18px",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 24px rgba(24,95,165,0.28)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <div onClick={()=>dogPhotoInputRef.current?.click()} style={{width:52,height:52,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.85)",overflow:"hidden",cursor:"pointer",background:"rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              {dogPhoto?<img src={dogPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:26}}>🐶</span>}
-            </div>
-            <input ref={dogPhotoInputRef} type="file" accept="image/*" onChange={handleDogPhoto} style={{display:"none"}}/>
-            <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{display:"none"}}/>
-            <div>
-              <p style={{fontWeight:800,fontSize:18,margin:0,color:"white"}}>{dog.name||"Nemo"}</p>
-              <p style={{fontSize:12,margin:0,color:"rgba(255,255,255,0.7)",fontWeight:500}}>Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>goTo("settings")} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 12px",cursor:"pointer",color:"white",fontSize:18,lineHeight:1}}>⚙️</button>
-            <div style={{position:"relative"}}>
-              <button onClick={()=>setMenuOpen(o=>!o)} style={{background:"rgba(255,255,255,0.18)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:12,padding:"8px 14px",cursor:"pointer",color:"white",fontSize:17,fontWeight:700}}>☰</button>
-              {menuOpen&&(<div style={{position:"absolute",right:0,top:48,background:"white",borderRadius:18,border:`1px solid ${B.border}`,boxShadow:"0 16px 48px rgba(55,138,221,0.2)",zIndex:100,minWidth:210,overflow:"hidden"}}>{NAV_SECTIONS.map((s,i)=>(<button key={s.id} onClick={()=>goTo(s.id)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"13px 18px",background:section===s.id?B.bg:"white",color:section===s.id?B.dark:"#334155",border:"none",borderBottom:i<NAV_SECTIONS.length-1?`1px solid ${B.bg}`:"none",cursor:"pointer",fontSize:14,fontWeight:section===s.id?700:400}}>{s.label}{section===s.id&&<span style={{color:B.mid,fontSize:13,fontWeight:700}}>✓</span>}</button>))}</div>)}
-            </div>
-          </div>
-        </div>
+        <Header/>
 
         {/* REMINDER */}
         {reminder&&(<div style={{margin:"0 0 14px",background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",borderRadius:14,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontWeight:700,color:"#854d0e"}}>⏰ {reminder.name} — {reminder.dose}</span><Btn small onClick={()=>setReminder(null)}>✓ Ho dato</Btn></div>)}
@@ -298,8 +377,16 @@ function App(){
                   <p style={{fontSize:13,margin:0,color:"rgba(255,255,255,0.8)",fontWeight:500}}>🏠 Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
                 </div>
               </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"14px 16px"}}>
-                {[{label:"Chip",val:dog.chip||"—"},{label:"Farmaci",val:meds.filter(m=>m.active).length+" attivi"},{label:"Peso",val:weights[0]?weights[0].kg+" kg":"—"},{label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next):"—"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:12,padding:"7px 13px"}}><p style={{fontSize:10,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.6px",fontWeight:600}}>{c.label}</p><p style={{fontSize:14,fontWeight:700,color:"white",margin:0}}>{c.val}</p></div>))}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"12px 14px"}}>
+                {[
+                  {label:"Chip",val:(dog.chip||"—").slice(0,10)},
+                  {label:"Farmaci",val:meds.filter(m=>m.active).length+"💊"},
+                  {label:"Peso",val:latestWeight?latestWeight.kg+"kg":"—"},
+                  {label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next).slice(0,8):"—"},
+                ].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:10,padding:"5px 10px"}}>
+                  <p style={{fontSize:9,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.5px",fontWeight:600}}>{c.label}</p>
+                  <p style={{fontSize:13,fontWeight:700,color:"white",margin:0,whiteSpace:"nowrap"}}>{c.val}</p>
+                </div>))}
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
@@ -310,7 +397,15 @@ function App(){
         )}
 
         {/* SETTINGS */}
-        {section==="settings"&&(<Card><p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 14px",textTransform:"uppercase",letterSpacing:"0.8px"}}>Modifica profilo</p><Input label="Nome" value={dog.name} onChange={e=>setDog(p=>({...p,name:e.target.value}))} placeholder="es. Nemo"/><Input label="Razza" value={dog.breed} onChange={e=>setDog(p=>({...p,breed:e.target.value}))} placeholder="es. Labrador"/><Input label="Data di nascita" type="date" value={dog.dob} onChange={e=>setDog(p=>({...p,dob:e.target.value}))}/><Input label="Numero chip" value={dog.chip} onChange={e=>setDog(p=>({...p,chip:e.target.value}))}/><Btn accent onClick={()=>dogPhotoInputRef.current?.click()}>📷 Cambia foto profilo</Btn><p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>Salvato automaticamente su cloud ☁️</p></Card>)}
+        {section==="settings"&&(
+          <div>
+            <Card><p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 14px",textTransform:"uppercase",letterSpacing:"0.8px"}}>Modifica profilo</p><Input label="Nome" value={dog.name} onChange={e=>setDog(p=>({...p,name:e.target.value}))} placeholder="es. Nemo"/><Input label="Razza" value={dog.breed} onChange={e=>setDog(p=>({...p,breed:e.target.value}))} placeholder="es. Labrador"/><Input label="Data di nascita" type="date" value={dog.dob} onChange={e=>setDog(p=>({...p,dob:e.target.value}))}/><Input label="Numero chip" value={dog.chip} onChange={e=>setDog(p=>({...p,chip:e.target.value}))}/><Btn accent onClick={()=>dogPhotoInputRef.current?.click()}>📷 Cambia foto profilo</Btn><p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>Salvato automaticamente su cloud ☁️</p></Card>
+            <Card>
+              <p style={{fontWeight:700,fontSize:13,color:B.dark,margin:"0 0 10px",textTransform:"uppercase",letterSpacing:"0.8px"}}>🔔 Notifiche farmaci</p>
+              {notifEnabled?(<div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20}}>✅</span><div><p style={{fontWeight:600,margin:0,color:"#166534"}}>Notifiche attive</p><p style={{fontSize:12,color:"#64748b",margin:0}}>Riceverai un promemoria per ogni farmaco</p></div></div>):(<div><p style={{fontSize:14,color:"#64748b",marginBottom:10}}>Attiva le notifiche push per ricevere il promemoria dei farmaci anche quando l'app è chiusa.</p><Btn accent onClick={enableNotifs}>🔔 Attiva notifiche</Btn></div>)}
+            </Card>
+          </div>
+        )}
 
         {/* FARMACI */}
         {section==="meds"&&(
@@ -326,20 +421,13 @@ function App(){
               <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
               <Btn accent onClick={()=>{if(!form.name)return;addItem(setMeds,{...form,active:true,date:today()});}}>+ Aggiungi</Btn>
             </Card>
+            {!notifEnabled&&(<div style={{background:"#fef9c3",border:"1px solid #fde047",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"#854d0e"}}>Attiva le notifiche per ricevere il reminder</span><Btn small onClick={enableNotifs}>Attiva</Btn></div>)}
             {meds.length===0&&<Empty msg="Nessun farmaco registrato"/>}
             {meds.map(m=>(
               <Card key={m.id}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{m.name}</p>
-                    <p style={{fontSize:13,color:"#64748b",margin:"0 0 6px"}}>{m.dose} — {m.freq}</p>
-                    {m.reminderTime&&<Tag color="warning">⏰ {m.reminderTime}</Tag>}
-                    <Tag color={m.active?"success":"secondary"}>{m.active?"Attivo":"Finito"}</Tag>
-                  </div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>setEditItem({setter:setMeds,item:m,title:"Modifica farmaco",fields:[{key:"name",label:"Nome"},{key:"dose",label:"Dose"},{key:"freq",label:"Frequenza"},{key:"start",label:"Inizio",type:"date"},{key:"end",label:"Fine",type:"date"},{key:"reminderTime",label:"Reminder",type:"time"},{key:"notes",label:"Note"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                    <Btn small danger onClick={()=>delItem(setMeds,m.id)}>✕</Btn>
-                  </div>
+                  <div style={{flex:1}}><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{m.name}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 6px"}}>{m.dose} — {m.freq}</p>{m.reminderTime&&<Tag color="warning">⏰ {m.reminderTime}</Tag>}<Tag color={m.active?"success":"secondary"}>{m.active?"Attivo":"Finito"}</Tag></div>
+                  <div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setMeds,item:m,title:"Modifica farmaco",fields:[{key:"name",label:"Nome"},{key:"dose",label:"Dose"},{key:"freq",label:"Frequenza"},{key:"start",label:"Inizio",type:"date"},{key:"end",label:"Fine",type:"date"},{key:"reminderTime",label:"Reminder",type:"time"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setMeds,m.id)}>✕</Btn></div>
                 </div>
                 <Btn small onClick={()=>setMeds(p=>p.map(x=>x.id===m.id?{...x,active:!x.active}:x))}>{m.active?"Segna finito":"Riattiva"}</Btn>
               </Card>
@@ -355,59 +443,102 @@ function App(){
               <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Fascia oraria</label>
-                <div style={{display:"flex",gap:8}}>
-                  {FASCIA_OPTIONS.map(fas=>(<button key={fas} onClick={()=>f("fascia",fas)} style={{flex:1,padding:"9px 6px",borderRadius:12,border:`2px solid ${form.fascia===fas?B.mid:B.border}`,background:form.fascia===fas?B.bg:"white",cursor:"pointer",fontSize:13,fontWeight:600,color:form.fascia===fas?B.dark:"#64748b"}}>{fas}</button>))}
-                </div>
+                <div style={{display:"flex",gap:8}}>{FASCIA_OPTIONS.map(fas=>(<button key={fas} onClick={()=>f("fascia",fas)} style={{flex:1,padding:"9px 6px",borderRadius:12,border:`2px solid ${form.fascia===fas?B.mid:B.border}`,background:form.fascia===fas?B.bg:"white",cursor:"pointer",fontSize:13,fontWeight:600,color:form.fascia===fas?B.dark:"#64748b"}}>{fas}</button>))}</div>
               </div>
               <Input label="Durata (minuti)" type="number" value={form.mins||""} onChange={e=>f("mins",e.target.value)} placeholder="es. 90"/>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Comportamento osservato</label>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Comportamenti osservati <span style={{fontSize:11,color:"#94a3b8",fontWeight:400}}>(ogni voce ha un peso nel punteggio)</span></label>
                 <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                  {ALONE_BEHAVIORS.map(b=>(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",borderRadius:12,border:`1.5px solid ${(form.behaviors||[]).includes(b.id)?B.mid:B.border}`,background:(form.behaviors||[]).includes(b.id)?B.bg:"white",cursor:"pointer",fontSize:14,fontWeight:500}}><input type="checkbox" checked={(form.behaviors||[]).includes(b.id)} onChange={e=>{const c=form.behaviors||[];f("behaviors",e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>{b.label}</label>))}
+                  {ALONE_BEHAVIORS.map(b=>{
+                    const sel=(form.behaviors||[]).includes(b.id);
+                    const positive=b.pts>0;
+                    return(<label key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 13px",borderRadius:12,border:`1.5px solid ${sel?B.mid:B.border}`,background:sel?B.bg:"white",cursor:"pointer",fontSize:14,fontWeight:500}}>
+                      <input type="checkbox" checked={sel} onChange={e=>{const c=form.behaviors||[];f("behaviors",e.target.checked?[...c,b.id]:c.filter(x=>x!==b.id));}}/>
+                      <span style={{flex:1}}>{b.label}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:positive?"#166534":"#b91c1c",background:positive?"#dcfce7":"#fee2e2",padding:"2px 7px",borderRadius:10}}>{b.pts>0?"+":""}{b.pts}</span>
+                    </label>);
+                  })}
                 </div>
-              </div>
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Umore (1=ansioso 5=tranquillo)</label>
-                <input type="range" min={1} max={5} step={1} value={form.score||3} onChange={e=>f("score",+e.target.value)} style={{width:"100%"}}/>
-                <span style={{fontSize:15}}>{moodEmoji[form.score||3]} {moodLabel[form.score||3]}</span>
+                {/* Live score preview */}
+                {(form.behaviors||[]).length>0&&(()=>{
+                  const sc=getAloneScore(form.behaviors||[]);
+                  const lbl=getAloneScoreLabel(sc);
+                  return(<div style={{marginTop:10,background:lbl.bg,borderRadius:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontWeight:700,color:lbl.color}}>{lbl.label}</span>
+                    <span style={{fontWeight:800,fontSize:20,color:lbl.color}}>{sc>0?"+":""}{sc} pt</span>
+                  </div>);
+                })()}
               </div>
               <div style={{marginBottom:12}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. Oggi sembrava più rilassato..." style={{width:"100%",minHeight:70,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
-              <Btn accent onClick={()=>addItem(setAlones,{...form,score:form.score||3,behaviors:form.behaviors||[]})}>+ Salva sessione</Btn>
+              <Btn accent onClick={()=>addItem(setAlones,{...form,behaviors:form.behaviors||[]})}>+ Salva sessione</Btn>
             </Card>
-            {alones.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Media umore",val:(alones.reduce((s,a)=>s+(+a.score),0)/alones.length).toFixed(1)+" /5"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
+            {alones.length>0&&(()=>{
+              const avg=(alones.reduce((s,a)=>s+getAloneScore(a.behaviors||[]),0)/alones.length).toFixed(1);
+              return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Media punteggio",val:avg+" pt"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>);
+            })()}
             {alones.length===0&&<Empty msg="Nessuna sessione registrata"/>}
-            {[...alones].sort((a,b)=>b.date?.localeCompare(a.date||"")).map(a=>(
-              <Card key={a.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}>
-                      <p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>
-                      {a.fascia&&<Tag color="info">{a.fascia}</Tag>}
-                      {a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}
-                      <span style={{fontSize:18}}>{moodEmoji[a.score]}</span>
-                    </div>
-                    {a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color="info">{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}
-                    {a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}
-                  </div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia oraria",type:"select",options:FASCIA_OPTIONS.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"score",label:"Umore",type:"range",min:1,max:5},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:ALONE_BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                    <Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn>
-                  </div>
+            <GroupedList
+              items={alones}
+              emptyMsg="Nessuna sessione registrata"
+              renderItem={a=>{
+                const sc=getAloneScore(a.behaviors||[]);
+                const lbl=getAloneScoreLabel(sc);
+                return(<Card key={a.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>{a.fascia&&<Tag color="info">{a.fascia}</Tag>}{a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}<span style={{fontSize:12,fontWeight:700,color:lbl.color,background:lbl.bg,padding:"2px 9px",borderRadius:10}}>{lbl.label} ({sc>0?"+":""}{sc})</span></div>{a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color={b.pts>0?"success":"danger"}>{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}{a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><EditPen onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia oraria",type:"select",options:FASCIA_OPTIONS.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:ALONE_BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn></div></div></Card>);
+              }}
+            />
+          </div>
+        )}
+
+        {/* SALUTE HUB */}
+        {section==="salute"&&!saluteSection&&(
+          <div>
+            {[
+              {id:"weight",emoji:"⚖️",title:"Peso",desc:"Registra e monitora il peso nel tempo",color:"#378ADD",bg:"linear-gradient(135deg,#e8f4fd,#dbeeff)",val:latestWeight?latestWeight.kg+" kg":"—"},
+              {id:"vet",emoji:"💉",title:"Veterinario",desc:"Visite, vaccini e appuntamenti",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",val:vets.find(v=>v.next&&v.next>=today())?fmt(vets.find(v=>v.next&&v.next>=today()).next):"Nessuna"},
+              {id:"symptoms",emoji:"🩺",title:"Sintomi",desc:"Anomalie e sintomi da monitorare",color:"#E24B4A",bg:"linear-gradient(135deg,#fee2e2,#fecaca)",val:symptoms.filter(s=>s.severity==="grave").length>0?`⚠️ ${symptoms.filter(s=>s.severity==="grave").length} gravi`:`${symptoms.length} registrati`},
+            ].map(s=>(
+              <div key={s.id} onClick={()=>setSaluteSection(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
+                <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
+                <div style={{flex:1}}>
+                  <p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p>
+                  <p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p>
+                  <span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span>
                 </div>
-              </Card>
+                <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
+              </div>
             ))}
           </div>
         )}
 
         {/* PESO */}
-        {section==="weight"&&(
+        {section==="salute"&&saluteSection==="weight"&&(
           <div>
+            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
             <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra peso</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Peso (kg)" type="number" step="0.1" value={form.kg||""} onChange={e=>f("kg",e.target.value)} placeholder="es. 12.5"/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.kg)return;addItem(setWeights,form);}}>+ Aggiungi</Btn></Card>
-            {weights.length>=2&&<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Andamento</p><LineChart data={weightChart} color={B.mid}/></Card>}
+            {weightChart.length>=2&&<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Andamento</p><LineChart data={weightChart} color={B.mid}/>{latestWeight&&<p style={{fontSize:13,color:B.dark,marginTop:6,textAlign:"right"}}>Peso attuale: <strong>{latestWeight.kg} kg</strong> ({fmt(latestWeight.date)})</p>}</Card>}
             {weights.length===0&&<Empty msg="Nessun peso registrato"/>}
-            {[...weights].sort((a,b)=>b.date?.localeCompare(a.date||"")).map(w=>(
-              <Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><button onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso (kg)",type:"number"},{key:"notes",label:"Note"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></div></Card>
-            ))}
+            <GroupedList items={weightsSorted.slice().reverse()} emptyMsg="Nessun peso registrato" renderItem={w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso (kg)",type:"number"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></div></Card>)}/>
+          </div>
+        )}
+
+        {/* VET */}
+        {section==="salute"&&saluteSection==="vet"&&(
+          <div>
+            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
+            {vets.filter(v=>v.next&&v.next>=today()).length>0&&(<Card style={{background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:"1px solid #86efac"}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📅 Prossimi appuntamenti</p>{vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}><span style={{fontWeight:500}}>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:700}}>{fmt(v.next)}</span></div>))}</Card>)}
+            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi visita / vaccino</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/><Input label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/><Input label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/><Input label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.type)return;addItem(setVets,form);}}>+ Aggiungi</Btn></Card>
+            {vets.length===0&&<Empty msg="Nessuna visita registrata"/>}
+            <GroupedList items={vets} emptyMsg="Nessuna visita registrata" renderItem={v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo appuntamento",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn></div></div></Card>)}/>
+          </div>
+        )}
+
+        {/* SINTOMI */}
+        {section==="salute"&&saluteSection==="symptoms"&&(
+          <div>
+            <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
+            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra sintomo</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Gravità</label><select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}><option value="lieve">Lieve</option><option value="moderata">Moderata</option><option value="grave">Grave</option></select></div><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.symptom)return;addItem(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn></Card>
+            {symptoms.length===0&&<Empty msg="Nessun sintomo registrato"/>}
+            <GroupedList items={symptoms} emptyMsg="Nessun sintomo registrato" renderItem={s=>(<Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn></div></div></Card>)}/>
           </div>
         )}
 
@@ -425,71 +556,43 @@ function App(){
               <Input label="Data" type="date" value={form.wDate||today()} onChange={e=>f("wDate",e.target.value)}/>
               <Input label="Durata (min)" type="number" value={form.wMins||""} onChange={e=>f("wMins",e.target.value)}/>
               <Input label="Km percorsi" type="number" step="0.1" value={form.wKm||""} onChange={e=>f("wKm",e.target.value)}/>
-              {places.length>0&&(<div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi toccati</label>{places.map(p=>(<label key={p.id} style={{display:"inline-flex",alignItems:"center",gap:6,marginRight:10,marginBottom:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.wPlaces||[]).includes(p.id)} onChange={e=>{const c=form.wPlaces||[];f("wPlaces",e.target.checked?[...c,p.id]:c.filter(x=>x!==p.id));}}/>{p.emoji} {p.name}</label>))}</div>)}
+              {places.length>0&&(
+                <div style={{marginBottom:12}}>
+                  <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi toccati</label>
+                  <select value="" onChange={e=>{if(e.target.value){const c=form.wPlaces||[];if(!c.includes(+e.target.value))f("wPlaces",[...c,+e.target.value]);}}} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14,marginBottom:8}}>
+                    <option value="">+ Seleziona luogo...</option>
+                    {places.filter(p=>!(form.wPlaces||[]).includes(p.id)).map(p=><option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+                  </select>
+                  {(form.wPlaces||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(form.wPlaces||[]).map(pid=>{const p=places.find(x=>x.id===pid);return p?<span key={pid} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:20,padding:"3px 10px",fontSize:13,display:"flex",alignItems:"center",gap:5}}>{p.emoji} {p.name}<button onClick={()=>f("wPlaces",(form.wPlaces||[]).filter(x=>x!==pid))} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#b91c1c",padding:0,marginLeft:2}}>✕</button></span>:null;})}</div>}
+                </div>
+              )}
               <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Umore</label><input type="range" min={1} max={5} step={1} value={form.wMood||3} onChange={e=>f("wMood",+e.target.value)} style={{width:"100%"}}/><span>{moodEmoji[form.wMood||3]} {moodLabel[form.wMood||3]}</span></div>
               <Input label="Note" value={form.wNotes||""} onChange={e=>f("wNotes",e.target.value)}/>
               <Btn accent onClick={()=>addItem(setWalks,{date:form.wDate||today(),mins:form.wMins,km:form.wKm,placeIds:form.wPlaces||[],mood:form.wMood||3,notes:form.wNotes})}>+ Salva giro</Btn>
             </Card>
             {walks.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Giri",val:walks.length},{label:"Km totali",val:walks.reduce((s,w)=>s+(+(w.km||0)),0).toFixed(1)},{label:"Ore totali",val:(walks.reduce((s,w)=>s+(+(w.mins||0)),0)/60).toFixed(1)+"h"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
             {walks.length===0&&<Empty msg="Nessun giro registrato"/>}
-            {[...walks].sort((a,b)=>b.date?.localeCompare(a.date||"")).map(w=>{
+            <GroupedList items={walks} emptyMsg="Nessun giro registrato" renderItem={w=>{
               const wps=places.filter(p=>(w.placeIds||[]).includes(p.id));
-              return(<Card key={w.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(w.date)}</p><span>{moodEmoji[w.mood]}</span></div>
-                    <p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>
-                    {wps.length>0&&<div style={{marginBottom:4}}>{wps.map(p=><Tag key={p.id} color="info">{p.emoji} {p.name}</Tag>)}</div>}
-                    {w.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:0}}>{w.notes}</p>}
-                  </div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>setEditItem({setter:setWalks,item:w,title:"Modifica giro",fields:[{key:"date",label:"Data",type:"date"},{key:"mins",label:"Durata (min)",type:"number"},{key:"km",label:"Km",type:"number"},{key:"notes",label:"Note",type:"textarea"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                    <Btn small danger onClick={()=>delItem(setWalks,w.id)}>✕</Btn>
-                  </div>
-                </div>
-              </Card>);
-            })}
+              return(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(w.date)}</p><span>{moodEmoji[w.mood]}</span></div><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>{wps.length>0&&<div style={{marginBottom:4}}>{wps.map(p=><Tag key={p.id} color="info">{p.emoji} {p.name}</Tag>)}</div>}{w.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:0}}>{w.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWalks,item:w,title:"Modifica giro",fields:[{key:"date",label:"Data",type:"date"},{key:"mins",label:"Durata (min)",type:"number"},{key:"km",label:"Km",type:"number"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setWalks,w.id)}>✕</Btn></div></div></Card>);
+            }}/>
           </div>
         )}
 
         {/* DIARIO FOTO */}
         {section==="photos"&&(
           <div>
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi foto</p>
-              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/>
-              <Input label="Luogo / occasione" value={form.place||""} onChange={e=>f("place",e.target.value)} placeholder="es. Parco della Villa"/>
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Foto</label><input type="file" accept="image/*" onChange={handlePhotoUpload} style={{fontSize:13}}/></div>
-              {form.photoData&&<img src={form.photoData} style={{width:"100%",borderRadius:12,marginBottom:10,maxHeight:200,objectFit:"cover"}}/>}
-              <Input label="Didascalia" value={form.caption||""} onChange={e=>f("caption",e.target.value)} placeholder="es. Prima passeggiata al mare!"/>
-              <Btn accent onClick={()=>{if(!form.photoData)return;addItem(setPhotos,form);}}>+ Aggiungi</Btn>
-            </Card>
+            <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi foto</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Luogo / occasione" value={form.place||""} onChange={e=>f("place",e.target.value)} placeholder="es. Parco della Villa"/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Foto</label><input type="file" accept="image/*" onChange={handlePhotoUpload} style={{fontSize:13}}/></div>{form.photoData&&<img src={form.photoData} style={{width:"100%",borderRadius:12,marginBottom:10,maxHeight:200,objectFit:"cover"}}/>}<Input label="Didascalia" value={form.caption||""} onChange={e=>f("caption",e.target.value)} placeholder="es. Prima passeggiata al mare!"/><Btn accent onClick={()=>{if(!form.photoData)return;addItem(setPhotos,form);}}>+ Aggiungi</Btn></Card>
             {photos.length===0&&<Empty msg="Nessuna foto nel diario"/>}
-            {/* Calendar grouped by month */}
             {Object.entries(photosByMonth).map(([monthKey,monthPhotos])=>(
               <div key={monthKey}>
                 <div onClick={()=>setPhotoMonth(photoMonth===monthKey?null:monthKey)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:GRAD,borderRadius:14,marginBottom:8,cursor:"pointer",boxShadow:"0 2px 8px rgba(55,138,221,0.2)"}}>
                   <p style={{fontWeight:700,fontSize:15,color:"white",margin:0,textTransform:"capitalize"}}>{fmtMonth(monthKey+"-01")}</p>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{background:"rgba(255,255,255,0.25)",color:"white",fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:12}}>{monthPhotos.length} foto</span>
-                    <span style={{color:"white",fontSize:16}}>{photoMonth===monthKey?"▲":"▼"}</span>
-                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{background:"rgba(255,255,255,0.25)",color:"white",fontSize:12,fontWeight:700,padding:"2px 9px",borderRadius:12}}>{monthPhotos.length} foto</span><span style={{color:"white",fontSize:16}}>{photoMonth===monthKey?"▲":"▼"}</span></div>
                 </div>
                 {(photoMonth===monthKey||photoMonth===null)&&(
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                    {monthPhotos.map(p=>(
-                      <div key={p.id} style={{background:"white",border:`1px solid ${B.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 3px 10px rgba(55,138,221,0.1)"}}>
-                        <img src={p.photoData} style={{width:"100%",height:130,objectFit:"cover",display:"block"}}/>
-                        <div style={{padding:"9px 11px"}}>
-                          <p style={{fontSize:12,color:B.dark,margin:"0 0 2px",fontWeight:600}}>{fmt(p.date)}{p.place?` · ${p.place}`:""}</p>
-                          {p.caption&&<p style={{fontSize:12,color:"#64748b",margin:0}}>{p.caption}</p>}
-                          <div style={{display:"flex",gap:6,marginTop:5}}>
-                            <button onClick={()=>setEditItem({setter:setPhotos,item:p,title:"Modifica foto",fields:[{key:"date",label:"Data",type:"date"},{key:"place",label:"Luogo"},{key:"caption",label:"Didascalia"}]})} style={{fontSize:11,color:B.dark,background:B.bg,border:"none",borderRadius:6,cursor:"pointer",padding:"2px 7px"}}>✏️</button>
-                            <button onClick={()=>delItem(setPhotos,p.id)} style={{fontSize:11,color:"#b91c1c",background:"none",border:"none",cursor:"pointer",padding:0}}>rimuovi</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    {monthPhotos.map(p=>(<div key={p.id} style={{background:"white",border:`1px solid ${B.border}`,borderRadius:16,overflow:"hidden",boxShadow:"0 3px 10px rgba(55,138,221,0.1)"}}><img src={p.photoData} style={{width:"100%",height:130,objectFit:"cover",display:"block"}}/><div style={{padding:"9px 11px"}}><p style={{fontSize:12,color:B.dark,margin:"0 0 2px",fontWeight:600}}>{fmt(p.date)}{p.place?` · ${p.place}`:""}</p>{p.caption&&<p style={{fontSize:12,color:"#64748b",margin:0}}>{p.caption}</p>}<div style={{display:"flex",gap:6,marginTop:5}}><EditPen onClick={()=>setEditItem({setter:setPhotos,item:p,title:"Modifica foto",fields:[{key:"date",label:"Data",type:"date"},{key:"place",label:"Luogo"},{key:"caption",label:"Didascalia"}]})}/><button onClick={()=>delItem(setPhotos,p.id)} style={{fontSize:11,color:"#b91c1c",background:"none",border:"none",cursor:"pointer",padding:0}}>rimuovi</button></div></div></div>))}
                   </div>
                 )}
               </div>
@@ -497,171 +600,44 @@ function App(){
           </div>
         )}
 
-        {/* VETERINARIO */}
-        {section==="vet"&&(
-          <div>
-            {vets.filter(v=>v.next&&v.next>=today()).length>0&&(<Card style={{background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:"1px solid #86efac"}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📅 Prossimi appuntamenti</p>{vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}><span style={{fontWeight:500}}>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:700}}>{fmt(v.next)}</span></div>))}</Card>)}
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi visita / vaccino</p>
-              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/><Input label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/><Input label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/><Input label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
-              <Btn accent onClick={()=>{if(!form.type)return;addItem(setVets,form);}}>+ Aggiungi</Btn>
-            </Card>
-            {vets.length===0&&<Empty msg="Nessuna visita registrata"/>}
-            {[...vets].sort((a,b)=>b.date?.localeCompare(a.date||"")).map(v=>(
-              <Card key={v.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo appuntamento",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                    <Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* SINTOMI */}
-        {section==="symptoms"&&(
-          <div>
-            <Card>
-              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra sintomo</p>
-              <Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/>
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Gravità</label><select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}><option value="lieve">Lieve</option><option value="moderata">Moderata</option><option value="grave">Grave</option></select></div>
-              <Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/>
-              <Btn accent onClick={()=>{if(!form.symptom)return;addItem(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn>
-            </Card>
-            {symptoms.length===0&&<Empty msg="Nessun sintomo registrato"/>}
-            {[...symptoms].sort((a,b)=>b.date?.localeCompare(a.date||"")).map(s=>(
-              <Card key={s.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div>
-                  <div style={{display:"flex",gap:4}}>
-                    <button onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                    <Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
         {/* AMICI */}
         {section==="friends"&&(
           <div>
-            {/* Classifica */}
-            {sortedFriends.length>0&&(
-              <Card style={{background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",marginBottom:14}}>
-                <p style={{fontWeight:700,margin:"0 0 10px",color:"#854d0e"}}>🏆 Classifica affinità</p>
-                {sortedFriends.map((fr,i)=>{
-                  const score=affinityScore(fr);
-                  const lbl=affinityLabel(score);
-                  return(<div key={fr.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderTop:i>0?"1px solid #fde047":"none"}}>
-                    <span style={{fontSize:18,fontWeight:800,color:"#854d0e",minWidth:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>
-                    {fr.photo?<img src={fr.photo} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid #fde047"}}/>:<div style={{width:36,height:36,borderRadius:"50%",background:"#fde047",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🐕</div>}
-                    <div style={{flex:1}}>
-                      <p style={{fontWeight:700,margin:0,fontSize:14,color:"#854d0e"}}>{fr.name}</p>
-                      <div style={{height:6,background:"#fde047",borderRadius:3,marginTop:3,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:"#d97706",borderRadius:3}}/></div>
-                    </div>
-                    <div style={{textAlign:"right"}}>
-                      <p style={{fontWeight:800,fontSize:16,margin:0,color:"#92400e"}}>{score}</p>
-                      <p style={{fontSize:10,color:"#92400e",margin:0}}>/100</p>
-                    </div>
-                  </div>);
-                })}
-              </Card>
-            )}
-
-            {/* Add friend form */}
+            {sortedFriends.length>0&&(<Card style={{background:"linear-gradient(135deg,#fef9c3,#fef3c7)",border:"1px solid #fde047",marginBottom:14}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#854d0e"}}>🏆 Classifica affinità</p>{sortedFriends.map((fr,i)=>{const score=affinityScore(fr);const lbl=affinityLabel(score);return(<div key={fr.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderTop:i>0?"1px solid #fde047":"none"}}><span style={{fontSize:18,fontWeight:800,color:"#854d0e",minWidth:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`}</span>{fr.photo?<img src={fr.photo} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover",border:"2px solid #fde047"}}/>:<div style={{width:36,height:36,borderRadius:"50%",background:"#fde047",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🐕</div>}<div style={{flex:1}}><p style={{fontWeight:700,margin:0,fontSize:14,color:"#854d0e"}}>{fr.name}</p><div style={{height:6,background:"#fde047",borderRadius:3,marginTop:3,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:"#d97706",borderRadius:3}}/></div></div><div style={{textAlign:"right"}}><p style={{fontWeight:800,fontSize:16,margin:0,color:"#92400e"}}>{score}</p><p style={{fontSize:10,color:"#92400e",margin:0}}>/100</p></div></div>);})}
+            </Card>)}
             <Card>
               <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi amico</p>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                <div onClick={()=>document.getElementById("friendPhotoInput").click()} style={{width:64,height:64,borderRadius:"50%",border:`2px dashed ${B.border}`,overflow:"hidden",cursor:"pointer",background:B.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                  {form.friendPhoto?<img src={form.friendPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:28}}>🐕</span>}
-                </div>
-                <div style={{flex:1}}>
-                  <p style={{fontSize:13,color:B.dark,fontWeight:600,margin:"0 0 4px"}}>Foto avatar (opzionale)</p>
-                  <Btn small onClick={()=>document.getElementById("friendPhotoInput").click()}>📷 Carica</Btn>
-                </div>
+                <div onClick={()=>document.getElementById("friendPhotoInput").click()} style={{width:64,height:64,borderRadius:"50%",border:`2px dashed ${B.border}`,overflow:"hidden",cursor:"pointer",background:B.bg,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{form.friendPhoto?<img src={form.friendPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:28}}>🐕</span>}</div>
+                <Btn small onClick={()=>document.getElementById("friendPhotoInput").click()}>📷 Foto avatar</Btn>
                 <input id="friendPhotoInput" type="file" accept="image/*" onChange={handleFriendPhoto} style={{display:"none"}}/>
               </div>
               <Input label="Nome del cane" value={form.name||""} onChange={e=>f("name",e.target.value)} placeholder="es. Fido"/>
               <Input label="Razza" value={form.breed||""} onChange={e=>f("breed",e.target.value)}/>
               <Input label="Proprietario" value={form.owner||""} onChange={e=>f("owner",e.target.value)}/>
-              <Input label="Quanti cani (es. 1 o 2 fratelli)" type="number" value={form.count||""} onChange={e=>f("count",e.target.value)} placeholder="es. 1"/>
-              <div style={{marginBottom:14}}>
-                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Reazione di Nemo</label>
-                <div style={{display:"flex",gap:8}}>
-                  {REACTION_OPTIONS.map(r=>(<label key={r.val} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer",padding:"11px 4px",borderRadius:12,border:`2px solid ${form.reaction===r.val?B.mid:B.border}`,background:form.reaction===r.val?B.bg:"white"}}><input type="radio" name="reaction" value={r.val} checked={form.reaction===r.val} onChange={()=>f("reaction",r.val)} style={{display:"none"}}/><span style={{fontSize:26}}>{r.label.split(" ")[0]}</span><span style={{fontSize:12,color:B.dark,fontWeight:600}}>{r.label.split(" ")[1]}</span></label>))}
-                </div>
-              </div>
+              <Input label="Quanti cani" type="number" value={form.count||""} onChange={e=>f("count",e.target.value)} placeholder="es. 1"/>
+              <div style={{marginBottom:14}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:600}}>Reazione di Nemo</label><div style={{display:"flex",gap:8}}>{REACTION_OPTIONS.map(r=>(<label key={r.val} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:"pointer",padding:"11px 4px",borderRadius:12,border:`2px solid ${form.reaction===r.val?B.mid:B.border}`,background:form.reaction===r.val?B.bg:"white"}}><input type="radio" name="reaction" value={r.val} checked={form.reaction===r.val} onChange={()=>f("reaction",r.val)} style={{display:"none"}}/><span style={{fontSize:26}}>{r.label.split(" ")[0]}</span><span style={{fontSize:12,color:B.dark,fontWeight:600}}>{r.label.split(" ")[1]}</span></label>))}</div></div>
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:8,fontWeight:700}}>Parametri affinità (0–20 ciascuno)</label>
-                {AFFINITY_PARAMS.map(p=>(
-                  <div key={p.id} style={{marginBottom:10}}>
-                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                      <label style={{fontSize:13,color:B.dark,fontWeight:500}}>{p.label}</label>
-                      <span style={{fontSize:13,fontWeight:700,color:B.mid}}>{form.affinity?.[p.id]||0}/20</span>
-                    </div>
-                    <input type="range" min={0} max={20} step={1} value={form.affinity?.[p.id]||0} onChange={e=>f("affinity",{...(form.affinity||{}),[p.id]:+e.target.value})} style={{width:"100%"}}/>
-                  </div>
-                ))}
-                <div style={{background:B.bg,borderRadius:10,padding:"8px 12px",textAlign:"center"}}>
-                  <span style={{fontWeight:800,fontSize:18,color:B.mid}}>{AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)}</span>
-                  <span style={{fontSize:13,color:B.dark}}>/100 — {affinityLabel(AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)).label}</span>
-                </div>
+                {AFFINITY_PARAMS.map(p=>(<div key={p.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><label style={{fontSize:13,color:B.dark,fontWeight:500}}>{p.label}</label><span style={{fontSize:13,fontWeight:700,color:B.mid}}>{form.affinity?.[p.id]||0}/20</span></div><input type="range" min={0} max={20} step={1} value={form.affinity?.[p.id]||0} onChange={e=>f("affinity",{...(form.affinity||{}),[p.id]:+e.target.value})} style={{width:"100%"}}/></div>))}
+                <div style={{background:B.bg,borderRadius:10,padding:"8px 12px",textAlign:"center"}}><span style={{fontWeight:800,fontSize:18,color:B.mid}}>{AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)}</span><span style={{fontSize:13,color:B.dark}}>/100 — {affinityLabel(AFFINITY_PARAMS.reduce((s,p)=>s+(+(form.affinity?.[p.id]||0)),0)).label}</span></div>
               </div>
-              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} placeholder="es. Si calmano dopo 5 minuti..." style={{width:"100%",minHeight:60,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
+              <div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Note</label><textarea value={form.notes||""} onChange={e=>f("notes",e.target.value)} style={{width:"100%",minHeight:60,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${B.border}`,background:"#f8fbff",fontSize:14,resize:"vertical"}}/></div>
               <Input label="Data primo incontro" type="date" value={form.metDate||today()} onChange={e=>f("metDate",e.target.value)}/>
               <Btn accent onClick={()=>{if(!form.name)return;addItem(setFriends,{...form,reaction:form.reaction||"neutro",photo:form.friendPhoto||null});}}>+ Aggiungi amico</Btn>
             </Card>
-
             {friends.length===0&&<Empty msg="Nessun amico registrato"/>}
-            {sortedFriends.map(fr=>{
-              const score=affinityScore(fr);
-              const lbl=affinityLabel(score);
-              const rx=REACTION_OPTIONS.find(r=>r.val===fr.reaction)||REACTION_OPTIONS[1];
-              return(
-                <Card key={fr.id}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
-                      <div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}>
-                        {fr.photo?<img src={fr.photo} style={{width:50,height:50,borderRadius:"50%",objectFit:"cover",border:`2px solid ${B.border}`}}/>:<div style={{width:50,height:50,borderRadius:"50%",background:B.bg,border:`2px solid ${B.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🐕</div>}
-                        <div>
-                          <p style={{fontWeight:700,margin:0,color:B.text}}>{fr.name}{fr.breed?` · ${fr.breed}`:""}</p>
-                          {fr.owner&&<p style={{fontSize:13,color:"#64748b",margin:0}}>di {fr.owner}{fr.count&&fr.count>1?` · ${fr.count} cani`:""}</p>}
-                        </div>
-                      </div>
-                      <div style={{marginBottom:8}}><Tag color={rx.color}>{rx.label}</Tag></div>
-                      {/* Affinity bar */}
-                      <div style={{background:lbl.bg,borderRadius:10,padding:"8px 12px",marginBottom:6}}>
-                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontSize:12,fontWeight:700,color:lbl.color}}>{lbl.label}</span>
-                          <span style={{fontSize:14,fontWeight:800,color:lbl.color}}>{score}/100</span>
-                        </div>
-                        <div style={{height:7,background:"rgba(0,0,0,0.1)",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:lbl.color,borderRadius:4,transition:"width 0.4s"}}/></div>
-                      </div>
-                      {fr.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{fr.notes}</p></div>}
-                    </div>
-                    <div style={{display:"flex",gap:4,marginLeft:8}}>
-                      <button onClick={()=>setEditItem({setter:setFriends,item:fr,title:"Modifica amico",fields:[{key:"name",label:"Nome"},{key:"breed",label:"Razza"},{key:"owner",label:"Proprietario"},{key:"count",label:"N° cani",type:"number"},{key:"reaction",label:"Reazione",type:"select",options:REACTION_OPTIONS.map(r=>({val:r.val,label:r.label}))},{key:"notes",label:"Note",type:"textarea"},{key:"metDate",label:"Data primo incontro",type:"date"}]})} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:14}}>✏️</button>
-                      <Btn small danger onClick={()=>delItem(setFriends,fr.id)}>✕</Btn>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+            {sortedFriends.map(fr=>{const score=affinityScore(fr);const lbl=affinityLabel(score);const rx=REACTION_OPTIONS.find(r=>r.val===fr.reaction)||REACTION_OPTIONS[1];return(<Card key={fr.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:11,marginBottom:8}}>{fr.photo?<img src={fr.photo} style={{width:50,height:50,borderRadius:"50%",objectFit:"cover",border:`2px solid ${B.border}`}}/>:<div style={{width:50,height:50,borderRadius:"50%",background:B.bg,border:`2px solid ${B.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🐕</div>}<div><p style={{fontWeight:700,margin:0,color:B.text}}>{fr.name}{fr.breed?` · ${fr.breed}`:""}</p>{fr.owner&&<p style={{fontSize:13,color:"#64748b",margin:0}}>di {fr.owner}{fr.count&&fr.count>1?` · ${fr.count} cani`:""}</p>}</div></div><div style={{marginBottom:8}}><Tag color={rx.color}>{rx.label}</Tag></div><div style={{background:lbl.bg,borderRadius:10,padding:"8px 12px",marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,fontWeight:700,color:lbl.color}}>{lbl.label}</span><span style={{fontSize:14,fontWeight:800,color:lbl.color}}>{score}/100</span></div><div style={{height:7,background:"rgba(0,0,0,0.1)",borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:lbl.color,borderRadius:4}}/></div></div>{fr.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{fr.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><EditPen onClick={()=>setEditItem({setter:setFriends,item:fr,title:"Modifica amico",fields:[{key:"name",label:"Nome"},{key:"breed",label:"Razza"},{key:"owner",label:"Proprietario"},{key:"count",label:"N° cani",type:"number"},{key:"reaction",label:"Reazione",type:"select",options:REACTION_OPTIONS.map(r=>({val:r.val,label:r.label}))},{key:"notes",label:"Note",type:"textarea"},{key:"metDate",label:"Data primo incontro",type:"date"}]})}/><Btn small danger onClick={()=>delItem(setFriends,fr.id)}>✕</Btn></div></div></Card>);})}
           </div>
         )}
 
         {/* GRAFICI */}
         {section==="charts"&&(
           <div>
-            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Peso</p><Trend data={weightChart}/></div>{weights.length>=2?<LineChart data={weightChart} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 pesate"/>}{weights.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Attuale",val:weights.sort((a,b)=>b.date?.localeCompare(a.date)).slice(-1)[0]?.kg+" kg"},{label:"Minimo",val:Math.min(...weights.map(w=>+w.kg))+" kg"},{label:"Massimo",val:Math.max(...weights.map(w=>+w.kg))+" kg"}].map(c=>(<div key={c.label} style={{flex:1,background:B.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:B.dark,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}</Card>
-            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Solo a casa</p><Trend data={aloneChart}/></div>{alones.length>=2?<LineChart data={aloneChart} color="#1D9E75"/>:<Empty msg="Aggiungi almeno 2 sessioni"/>}</Card>
+            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Peso (ordine cronologico)</p><Trend data={weightChart}/></div>{weightChart.length>=2?<LineChart data={weightChart} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 pesate"/>}{weights.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Attuale",val:latestWeight?.kg+" kg"},{label:"Minimo",val:Math.min(...weights.map(w=>+w.kg))+" kg"},{label:"Massimo",val:Math.max(...weights.map(w=>+w.kg))+" kg"}].map(c=>(<div key={c.label} style={{flex:1,background:B.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:B.dark,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}</Card>
+            <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><p style={{fontWeight:700,margin:0,color:B.text}}>Solo a casa — punteggio</p><Trend data={aloneChart}/></div>{aloneChart.length>=2?<LineChart data={aloneChart} color="#1D9E75"/>:<Empty msg="Aggiungi almeno 2 sessioni"/>}</Card>
             <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Passeggiate per mese</p>{walks.length>=2?<BarChart data={walksPerMonth()} color={B.mid}/>:<Empty msg="Aggiungi almeno 2 giri"/>}</Card>
             <Card><p style={{fontWeight:700,margin:"0 0 10px",color:B.text}}>Sintomi più frequenti</p>{symptoms.length>=2?<BarChart data={sympByType()} color="#E24B4A"/>:<Empty msg="Aggiungi almeno 2 sintomi"/>}{symptoms.length>0&&(<div style={{display:"flex",gap:8,marginTop:12}}>{[{label:"Gravi",val:symptoms.filter(s=>s.severity==="grave").length,bg:"#fee2e2",tc:"#b91c1c"},{label:"Moderati",val:symptoms.filter(s=>s.severity==="moderata").length,bg:"#fef9c3",tc:"#854d0e"},{label:"Lievi",val:symptoms.filter(s=>s.severity==="lieve").length,bg:"#dcfce7",tc:"#166534"}].map(c=>(<div key={c.label} style={{flex:1,background:c.bg,borderRadius:10,padding:"9px",textAlign:"center"}}><p style={{fontSize:11,color:c.tc,margin:0,fontWeight:600}}>{c.label}</p><p style={{fontSize:16,fontWeight:800,margin:0,color:c.tc}}>{c.val}</p></div>))}</div>)}</Card>
-            {/* Affinity chart */}
             {friends.length>0&&(<Card><p style={{fontWeight:700,margin:"0 0 12px",color:B.text}}>🏆 Affinità amici</p>{sortedFriends.map(fr=>{const score=affinityScore(fr);const lbl=affinityLabel(score);return(<div key={fr.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:13,fontWeight:600,color:B.text}}>{fr.name}</span><span style={{fontSize:13,fontWeight:800,color:lbl.color}}>{score}/100</span></div><div style={{height:10,background:B.bg,borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",width:`${score}%`,background:B.mid,borderRadius:5}}/></div></div>);})}</Card>)}
           </div>
         )}
