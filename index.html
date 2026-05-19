@@ -100,18 +100,17 @@ const moodLabel={1:"Molto basso",2:"Basso",3:"Normale",4:"Buono",5:"Eccellente"}
 const REACTION_OPTIONS=[{val:"simpatico",label:"😊 Simpatico",color:"success"},{val:"neutro",label:"😐 Neutro",color:"warning"},{val:"ostile",label:"😠 Ostile",color:"danger"}];
 const PLACE_EMOJIS=["🌳","🏖️","🏕️","🐾","🏡","⛲","🛤️","🌿","🏟️","🌊"];
 
-const ALONE_BEHAVIORS=[
+  const ALONE_BEHAVIORS=[
   {id:"divano",label:"😴 Tranquillo sul divano",pts:3},
   {id:"giocava",label:"🎾 Giocava / masticava",pts:3},
   {id:"dormiva",label:"💤 Dormiva",pts:4},
-  {id:"finestra",label:"🪟 Guardava dalla finestra",pts:1},
+  {id:"giardino",label:"🌿 Uscito in giardino",pts:2},
   {id:"abbaiava",label:"🔊 Abbaiava",pts:-2},
   {id:"ululava",label:"🌕 Ululava",pts:-3},
   {id:"agitato",label:"😰 Agitato / ansioso",pts:-3},
   {id:"danni",label:"💥 Ha fatto danni",pts:-4},
   {id:"mangiato",label:"🍖 Ha mangiato regolarmente",pts:2},
   {id:"nonmangiato",label:"🚫 Non ha mangiato",pts:-2},
-  {id:"acqua",label:"💧 Ha bevuto acqua",pts:1},
 ];
 
 const ALONE_SCORE_LABELS=[
@@ -153,10 +152,25 @@ const SECTIONS=[
   {id:"alone",label:"Solo a casa"},
   {id:"salute",label:"Salute"},
   {id:"walks",label:"Passeggiate"},
+  {id:"obiettivi",label:"Obiettivi & Training"},
   {id:"photos",label:"Diario foto"},
   {id:"friends",label:"Amici"},
   {id:"charts",label:"Grafici"},
   {id:"settings",label:"Impostazioni"},
+];
+
+// Training commands database
+const COMANDI_BASE=[
+  {id:"seduto",nome:"Seduto",emoji:"🪑",come:"Di' 'Seduto' con tono fermo. Tieni un premio sopra la sua testa finché si siede, poi premia subito.",difficolta:1},
+  {id:"fermo",nome:"Fermo",emoji:"✋",come:"Chiedi 'Seduto', poi apri il palmo verso di lui dicendo 'Fermo'. Allontanati di un passo, torna e premia se è rimasto.",difficolta:2},
+  {id:"vieni",nome:"Vieni / Richiamo",emoji:"🏃",come:"Accovacciati, apri le braccia e chiama il suo nome + 'Vieni!' con tono entusiasta. Premia sempre quando arriva.",difficolta:1},
+  {id:"terra",nome:"Terra / Giù",emoji:"⬇️",come:"Da 'Seduto', porta il premio verso il basso tra le zampe anteriori fino a che non si sdraia. Premia.",difficolta:2},
+  {id:"lascia",nome:"Lascia",emoji:"🚫",come:"Mostra un premio in pugno chiuso. Quando smette di annusare e si allontana, apri il pugno e premia con l'altro.",difficolta:3},
+  {id:"prendilo",nome:"Prendilo",emoji:"🎾",come:"Lancia un oggetto dicendo 'Prendilo'. Inizia a distanza corta e premia se lo porta indietro.",difficolta:2},
+  {id:"posto",nome:"Al posto",emoji:"🛏️",come:"Indica la sua cuccia dicendo 'Al posto'. Porta un premio verso di essa. Premia quando ci sale sopra.",difficolta:3},
+  {id:"zampa",nome:"Zampa / Dai cinque",emoji:"🤝",come:"Chiedi 'Seduto', poi tieni un premio in pugno a altezza zampa. Quando gratta il pugno, apri e premia.",difficolta:2},
+  {id:"gira",nome:"Gira",emoji:"🔄",come:"Con un premio in mano, traccia un cerchio intorno alla sua testa in senso orario dicendo 'Gira'. Premia dopo il cerchio completo.",difficolta:3},
+  {id:"saluta",nome:"Saluta",emoji:"👋",come:"Da 'Terra', tieni un premio sopra di lui finché si alza sulle zampe posteriori. Di' 'Saluta' e premia.",difficolta:4},
 ];
 
 function LineChart({data,color="#378ADD"}){
@@ -240,7 +254,10 @@ function App(){
   const [form,setForm]=useState({});
   const [mapPending,setMapPending]=useState(null);
   const [editItem,setEditItem]=useState(null);
-  const [photoMonth,setPhotoMonth]=useState(null);
+  const [training,setTraining]=useState([]);   // {commandId, status:"appreso"|"in corso"|"da iniziare", sessions:[{date,notes,riuscito}], goal:bool}
+  const [trainingSessions,setTrainingSessions]=useState([]); // log sessioni
+  const [walkGoals,setWalkGoals]=useState([]);  // obiettivi passeggiate
+  const [obiSection,setObiSection]=useState(null); // "passeggiate"|"addestramento"
   const [notifEnabled,setNotifEnabled]=useState(Notification?.permission==="granted");
   const dogPhotoInputRef=useRef(null);
   const photoInputRef=useRef(null);
@@ -251,9 +268,10 @@ function App(){
 
   useEffect(()=>{
     const init=()=>{
-      const setters={dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces};
+      const setters={dog:setDog,dogPhoto:setDogPhoto,meds:setMeds,alones:setAlones,weights:setWeights,walks:setWalks,photos:setPhotos,vets:setVets,symptoms:setSymptoms,friends:setFriends,places:setPlaces,training:setTraining,trainingSessions:setTrainingSessions,walkGoals:setWalkGoals};
       let loaded={};
-      const unsubs=KEYS.map(k=>fbListen(k,v=>{setters[k](v);loaded[k]=true;if(KEYS.every(key=>loaded[key])){setTimeout(()=>{saveEnabled.current=true;setReady(true);},300);}}));
+      const ALL_KEYS=["dog","dogPhoto","meds","alones","weights","walks","photos","vets","symptoms","friends","places","training","trainingSessions","walkGoals"];
+      const unsubs=ALL_KEYS.map(k=>fbListen(k,v=>{setters[k]&&setters[k](v);loaded[k]=true;if(ALL_KEYS.every(key=>loaded[key])){setTimeout(()=>{saveEnabled.current=true;setReady(true);},300);}}));
       const timeout=setTimeout(()=>{saveEnabled.current=true;setReady(true);},4000);
       return()=>{unsubs.forEach(u=>u());clearTimeout(timeout);};
     };
@@ -270,9 +288,11 @@ function App(){
   useEffect(()=>{if(saveEnabled.current)fbSave("weights",weights);},[weights]);
   useEffect(()=>{if(saveEnabled.current)fbSave("walks",walks);},[walks]);
   useEffect(()=>{if(saveEnabled.current)fbSave("photos",photos);},[photos]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("vets",vets);},[vets]);
+  useEffect(()=>{if(saveEnabled.current){fbSave("vets",vets);if(notifEnabled)scheduleVetReminders(vets);}},[vets]);
   useEffect(()=>{if(saveEnabled.current)fbSave("symptoms",symptoms);},[symptoms]);
-  useEffect(()=>{if(saveEnabled.current)fbSave("friends",friends);},[friends]);
+  useEffect(()=>{if(saveEnabled.current)fbSave("training",training);},[training]);
+  useEffect(()=>{if(saveEnabled.current)fbSave("trainingSessions",trainingSessions);},[trainingSessions]);
+  useEffect(()=>{if(saveEnabled.current)fbSave("walkGoals",walkGoals);},[walkGoals]);
   useEffect(()=>{if(saveEnabled.current)fbSave("places",places);},[places]);
 
   // In-app reminder check
@@ -360,8 +380,16 @@ function App(){
                   <p style={{fontSize:13,margin:0,color:"rgba(255,255,255,0.8)",fontWeight:500}}>🏠 Kika & Rubi{dog.breed?` · ${dog.breed}`:""}</p>
                 </div>
               </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",padding:"14px 16px"}}>
-                {[{label:"Chip",val:dog.chip||"—"},{label:"Farmaci",val:meds.filter(m=>m.active).length+" attivi"},{label:"Peso",val:latestWeight?latestWeight.kg+" kg":"—"},{label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next):"—"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:12,padding:"7px 13px"}}><p style={{fontSize:10,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.6px",fontWeight:600}}>{c.label}</p><p style={{fontSize:14,fontWeight:700,color:"white",margin:0}}>{c.val}</p></div>))}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",padding:"12px 14px"}}>
+                {[
+                  {label:"Chip",val:(dog.chip||"—").slice(0,10)},
+                  {label:"Farmaci",val:meds.filter(m=>m.active).length+"💊"},
+                  {label:"Peso",val:latestWeight?latestWeight.kg+"kg":"—"},
+                  {label:"Visita",val:vets.find(v=>v.next&&v.next>=today())?.next?fmt(vets.find(v=>v.next&&v.next>=today()).next).slice(0,8):"—"},
+                ].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.14)",borderRadius:10,padding:"5px 10px"}}>
+                  <p style={{fontSize:9,color:"rgba(255,255,255,0.6)",margin:"0 0 1px",textTransform:"uppercase",letterSpacing:"0.5px",fontWeight:600}}>{c.label}</p>
+                  <p style={{fontSize:13,fontWeight:700,color:"white",margin:0,whiteSpace:"nowrap"}}>{c.val}</p>
+                </div>))}
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:16}}>
@@ -452,28 +480,15 @@ function App(){
               return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Media punteggio",val:avg+" pt"},{label:"Sessioni",val:alones.length},{label:"Min totali",val:alones.reduce((s,a)=>s+(+(a.mins||0)),0)}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>);
             })()}
             {alones.length===0&&<Empty msg="Nessuna sessione registrata"/>}
-            {[...alones].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(a=>{
-              const sc=getAloneScore(a.behaviors||[]);
-              const lbl=getAloneScoreLabel(sc);
-              return(<Card key={a.id}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}>
-                      <p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>
-                      {a.fascia&&<Tag color="info">{a.fascia}</Tag>}
-                      {a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}
-                      <span style={{fontSize:12,fontWeight:700,color:lbl.color,background:lbl.bg,padding:"2px 9px",borderRadius:10}}>{lbl.label} ({sc>0?"+":""}{sc})</span>
-                    </div>
-                    {a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color={b.pts>0?"success":"danger"}>{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}
-                    {a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}
-                  </div>
-                  <div style={{display:"flex",gap:4,marginLeft:8}}>
-                    <EditPen onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia oraria",type:"select",options:FASCIA_OPTIONS.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:ALONE_BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})}/>
-                    <Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn>
-                  </div>
-                </div>
-              </Card>);
-            })}
+            <GroupedList
+              items={alones}
+              emptyMsg="Nessuna sessione registrata"
+              renderItem={a=>{
+                const sc=getAloneScore(a.behaviors||[]);
+                const lbl=getAloneScoreLabel(sc);
+                return(<Card key={a.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7,flexWrap:"wrap"}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(a.date)}</p>{a.fascia&&<Tag color="info">{a.fascia}</Tag>}{a.mins&&<Tag color="secondary">⏱ {a.mins} min</Tag>}<span style={{fontSize:12,fontWeight:700,color:lbl.color,background:lbl.bg,padding:"2px 9px",borderRadius:10}}>{lbl.label} ({sc>0?"+":""}{sc})</span></div>{a.behaviors&&a.behaviors.length>0&&<div style={{marginBottom:6}}>{a.behaviors.map(bId=>{const b=ALONE_BEHAVIORS.find(x=>x.id===bId);return b?<Tag key={bId} color={b.pts>0?"success":"danger"}>{b.label.split(" ").slice(1).join(" ")}</Tag>:null;})}</div>}{a.notes&&<div style={{background:B.bg,borderRadius:10,padding:"8px 11px"}}><p style={{fontSize:13,color:B.dark,margin:0,fontStyle:"italic"}}>{a.notes}</p></div>}</div><div style={{display:"flex",gap:4,marginLeft:8}}><EditPen onClick={()=>setEditItem({setter:setAlones,item:a,title:"Modifica sessione",fields:[{key:"date",label:"Data",type:"date"},{key:"fascia",label:"Fascia oraria",type:"select",options:FASCIA_OPTIONS.map(o=>({val:o,label:o}))},{key:"mins",label:"Durata (min)",type:"number"},{key:"behaviors",label:"Comportamenti",type:"checkboxes",options:ALONE_BEHAVIORS},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setAlones,a.id)}>✕</Btn></div></div></Card>);
+              }}
+            />
           </div>
         )}
 
@@ -505,7 +520,7 @@ function App(){
             <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra peso</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Peso (kg)" type="number" step="0.1" value={form.kg||""} onChange={e=>f("kg",e.target.value)} placeholder="es. 12.5"/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.kg)return;addItem(setWeights,form);}}>+ Aggiungi</Btn></Card>
             {weightChart.length>=2&&<Card><p style={{fontWeight:700,marginBottom:10,color:B.text}}>Andamento</p><LineChart data={weightChart} color={B.mid}/>{latestWeight&&<p style={{fontSize:13,color:B.dark,marginTop:6,textAlign:"right"}}>Peso attuale: <strong>{latestWeight.kg} kg</strong> ({fmt(latestWeight.date)})</p>}</Card>}
             {weights.length===0&&<Empty msg="Nessun peso registrato"/>}
-            {weightsSorted.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso (kg)",type:"number"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></div></Card>))}
+            <GroupedList items={weightsSorted.slice().reverse()} emptyMsg="Nessun peso registrato" renderItem={w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><p style={{fontWeight:700,margin:"0 0 2px",color:B.text}}>{w.kg} kg</p><p style={{fontSize:13,color:"#64748b",margin:0}}>{fmt(w.date)}</p></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWeights,item:w,title:"Modifica peso",fields:[{key:"date",label:"Data",type:"date"},{key:"kg",label:"Peso (kg)",type:"number"},{key:"notes",label:"Note"}]})}/><Btn small danger onClick={()=>delItem(setWeights,w.id)}>✕</Btn></div></div></Card>)}/>
           </div>
         )}
 
@@ -516,7 +531,7 @@ function App(){
             {vets.filter(v=>v.next&&v.next>=today()).length>0&&(<Card style={{background:"linear-gradient(135deg,#f0fdf4,#dcfce7)",border:"1px solid #86efac"}}><p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📅 Prossimi appuntamenti</p>{vets.filter(v=>v.next&&v.next>=today()).sort((a,b)=>a.next.localeCompare(b.next)).map(v=>(<div key={v.id} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderTop:"1px solid #bbf7d0",fontSize:13,color:"#166534"}}><span style={{fontWeight:500}}>{v.type}{v.vet?` — ${v.vet}`:""}</span><span style={{fontWeight:700}}>{fmt(v.next)}</span></div>))}</Card>)}
             <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Aggiungi visita / vaccino</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Tipo" value={form.type||""} onChange={e=>f("type",e.target.value)} placeholder="es. visita, vaccino"/><Input label="Veterinario" value={form.vet||""} onChange={e=>f("vet",e.target.value)}/><Input label="Diagnosi / risultato" value={form.result||""} onChange={e=>f("result",e.target.value)}/><Input label="Prossimo appuntamento" type="date" value={form.next||""} onChange={e=>f("next",e.target.value)}/><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.type)return;addItem(setVets,form);}}>+ Aggiungi</Btn></Card>
             {vets.length===0&&<Empty msg="Nessuna visita registrata"/>}
-            {[...vets].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo appuntamento",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn></div></div></Card>))}
+            <GroupedList items={vets} emptyMsg="Nessuna visita registrata" renderItem={v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 3px",color:B.text}}>{v.type}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(v.date)}{v.vet?` — ${v.vet}`:""}</p>{v.next&&<Tag color={v.next>=today()?"success":"secondary"}>Prossimo: {fmt(v.next)}</Tag>}{v.notes&&<p style={{fontSize:12,color:"#94a3b8",marginTop:6}}>{v.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setVets,item:v,title:"Modifica visita",fields:[{key:"date",label:"Data",type:"date"},{key:"type",label:"Tipo"},{key:"vet",label:"Veterinario"},{key:"result",label:"Risultato"},{key:"next",label:"Prossimo appuntamento",type:"date"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setVets,v.id)}>✕</Btn></div></div></Card>)}/>
           </div>
         )}
 
@@ -526,7 +541,7 @@ function App(){
             <button onClick={()=>setSaluteSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Salute</button>
             <Card><p style={{fontWeight:700,marginBottom:12,color:B.text}}>Registra sintomo</p><Input label="Data" type="date" value={form.date||today()} onChange={e=>f("date",e.target.value)}/><Input label="Sintomo" value={form.symptom||""} onChange={e=>f("symptom",e.target.value)} placeholder="es. vomito, zoppia..."/><div style={{marginBottom:10}}><label style={{fontSize:13,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Gravità</label><select value={form.severity||"lieve"} onChange={e=>f("severity",e.target.value)} style={{width:"100%",borderRadius:10,border:`1.5px solid ${B.border}`,padding:"9px 12px",background:"#f8fbff",fontSize:14}}><option value="lieve">Lieve</option><option value="moderata">Moderata</option><option value="grave">Grave</option></select></div><Input label="Note" value={form.notes||""} onChange={e=>f("notes",e.target.value)}/><Btn accent onClick={()=>{if(!form.symptom)return;addItem(setSymptoms,{...form,severity:form.severity||"lieve"});}}>+ Aggiungi</Btn></Card>
             {symptoms.length===0&&<Empty msg="Nessun sintomo registrato"/>}
-            {[...symptoms].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(s=>(<Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn></div></div></Card>))}
+            <GroupedList items={symptoms} emptyMsg="Nessun sintomo registrato" renderItem={s=>(<Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p style={{fontWeight:700,margin:"0 0 4px",color:B.text}}>{s.symptom}</p><p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{fmt(s.date)}</p><Tag color={s.severity==="grave"?"danger":s.severity==="moderata"?"warning":"success"}>{s.severity==="grave"?"Grave":s.severity==="moderata"?"Moderata":"Lieve"}</Tag></div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setSymptoms,item:s,title:"Modifica sintomo",fields:[{key:"date",label:"Data",type:"date"},{key:"symptom",label:"Sintomo"},{key:"severity",label:"Gravità",type:"select",options:[{val:"lieve",label:"Lieve"},{val:"moderata",label:"Moderata"},{val:"grave",label:"Grave"}]},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setSymptoms,s.id)}>✕</Btn></div></div></Card>)}/>
           </div>
         )}
 
@@ -560,9 +575,203 @@ function App(){
             </Card>
             {walks.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>{[{label:"Giri",val:walks.length},{label:"Km totali",val:walks.reduce((s,w)=>s+(+(w.km||0)),0).toFixed(1)},{label:"Ore totali",val:(walks.reduce((s,w)=>s+(+(w.mins||0)),0)/60).toFixed(1)+"h"}].map(c=>(<div key={c.label} style={{background:"rgba(255,255,255,0.9)",borderRadius:12,padding:"0.8rem",textAlign:"center",border:`1px solid ${B.border}`}}><p style={{fontSize:11,color:B.dark,margin:"0 0 3px",fontWeight:600}}>{c.label}</p><p style={{fontSize:18,fontWeight:800,margin:0,color:B.text}}>{c.val}</p></div>))}</div>)}
             {walks.length===0&&<Empty msg="Nessun giro registrato"/>}
-            {[...walks].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).map(w=>{
+            <GroupedList items={walks} emptyMsg="Nessun giro registrato" renderItem={w=>{
               const wps=places.filter(p=>(w.placeIds||[]).includes(p.id));
               return(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><p style={{fontWeight:700,margin:0,color:B.text}}>{fmt(w.date)}</p><span>{moodEmoji[w.mood]}</span></div><p style={{fontSize:13,color:"#64748b",margin:"0 0 4px"}}>{w.mins?`${w.mins} min`:""}{w.km?` · ${w.km} km`:""}</p>{wps.length>0&&<div style={{marginBottom:4}}>{wps.map(p=><Tag key={p.id} color="info">{p.emoji} {p.name}</Tag>)}</div>}{w.notes&&<p style={{fontSize:12,color:"#94a3b8",margin:0}}>{w.notes}</p>}</div><div style={{display:"flex",gap:4}}><EditPen onClick={()=>setEditItem({setter:setWalks,item:w,title:"Modifica giro",fields:[{key:"date",label:"Data",type:"date"},{key:"mins",label:"Durata (min)",type:"number"},{key:"km",label:"Km",type:"number"},{key:"notes",label:"Note",type:"textarea"}]})}/><Btn small danger onClick={()=>delItem(setWalks,w.id)}>✕</Btn></div></div></Card>);
+            }}/>
+          </div>
+        )}
+
+        {/* OBIETTIVI & TRAINING HUB */}
+        {section==="obiettivi"&&!obiSection&&(
+          <div>
+            {[
+              {id:"passeggiate",emoji:"🗺️",title:"Obiettivi Passeggiate",desc:"Km settimanali, luoghi nuovi, percorsi diversi",color:"#1D9E75",bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)",
+                val:(()=>{const done=walkGoals.filter(g=>g.done).length;return`${done}/${walkGoals.length} completati`;})()},
+              {id:"addestramento",emoji:"🎓",title:"Addestramento",desc:"Comandi, sessioni di training e progressi",color:"#7C3AED",bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)",
+                val:(()=>{const appresi=training.filter(t=>t.status==="appreso").length;return`${appresi}/${COMANDI_BASE.length} comandi appresi`;})()},
+            ].map(s=>(
+              <div key={s.id} onClick={()=>setObiSection(s.id)} style={{background:s.bg,borderRadius:20,padding:"18px 20px",marginBottom:12,cursor:"pointer",border:"1px solid rgba(255,255,255,0.8)",boxShadow:"0 3px 12px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:16}}>
+                <div style={{width:56,height:56,borderRadius:16,background:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{s.emoji}</div>
+                <div style={{flex:1}}>
+                  <p style={{fontWeight:800,fontSize:17,margin:"0 0 3px",color:s.color}}>{s.title}</p>
+                  <p style={{fontSize:13,color:"#64748b",margin:"0 0 5px"}}>{s.desc}</p>
+                  <span style={{fontSize:12,fontWeight:700,color:s.color,background:"rgba(255,255,255,0.7)",padding:"2px 10px",borderRadius:10}}>{s.val}</span>
+                </div>
+                <span style={{fontSize:20,color:s.color,opacity:0.5}}>›</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* OBIETTIVI PASSEGGIATE */}
+        {section==="obiettivi"&&obiSection==="passeggiate"&&(
+          <div>
+            <button onClick={()=>setObiSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Obiettivi & Training</button>
+
+            {/* Stats passeggiate vs obiettivi */}
+            {walkGoals.length>0&&(
+              <Card style={{background:"linear-gradient(135deg,#dcfce7,#f0fdf4)",border:"1px solid #86efac",marginBottom:14}}>
+                <p style={{fontWeight:700,margin:"0 0 10px",color:"#166534"}}>📊 Progressi questa settimana</p>
+                {(()=>{
+                  const now=new Date();const mon=new Date(now);mon.setDate(now.getDate()-now.getDay()+1);mon.setHours(0,0,0,0);
+                  const thisWeekWalks=walks.filter(w=>{const d=new Date(w.date+"T00:00:00");return d>=mon;});
+                  const weekKm=thisWeekWalks.reduce((s,w)=>s+(+(w.km||0)),0);
+                  const uniquePlaces=new Set(thisWeekWalks.flatMap(w=>w.placeIds||[])).size;
+                  return(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    {[{l:"Giri",v:thisWeekWalks.length},{l:"Km",v:weekKm.toFixed(1)},{l:"Luoghi",v:uniquePlaces}].map(c=>(<div key={c.l} style={{background:"rgba(255,255,255,0.7)",borderRadius:10,padding:"8px",textAlign:"center"}}><p style={{fontSize:20,fontWeight:800,margin:0,color:"#166534"}}>{c.v}</p><p style={{fontSize:11,color:"#166534",margin:0,fontWeight:600}}>{c.l}</p></div>))}
+                  </div>);
+                })()}
+              </Card>
+            )}
+
+            {/* Add goal */}
+            <Card>
+              <p style={{fontWeight:700,marginBottom:12,color:B.text}}>Nuovo obiettivo passeggiata</p>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Tipo di obiettivo</label>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[
+                    {val:"km_week",label:"🏃 Km totali a settimana",placeholder:"es. 10"},
+                    {val:"giri_week",label:"🔁 Giri a settimana",placeholder:"es. 5"},
+                    {val:"luoghi_diversi",label:"📍 Luoghi diversi da visitare",placeholder:"es. 3"},
+                    {val:"posto_nuovo",label:"🌍 Posti nuovi da scoprire",placeholder:"es. 2"},
+                    {val:"durata",label:"⏱ Minuti di cammino a settimana",placeholder:"es. 120"},
+                    {val:"custom",label:"✏️ Obiettivo personalizzato",placeholder:"descrivi l'obiettivo"},
+                  ].map(t=>(<label key={t.val} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,border:`1.5px solid ${form.goalType===t.val?B.mid:B.border}`,background:form.goalType===t.val?B.bg:"white",cursor:"pointer",fontSize:14}}><input type="radio" name="goalType" checked={form.goalType===t.val} onChange={()=>f("goalType",t.val)} style={{accentColor:B.mid}}/>{t.label}</label>))}
+                </div>
+              </div>
+              {form.goalType&&form.goalType!=="luoghi_diversi"&&form.goalType!=="posto_nuovo"&&(
+                <Input label="Target" type={form.goalType==="custom"?"text":"number"} value={form.goalTarget||""} onChange={e=>f("goalTarget",e.target.value)} placeholder="Valore obiettivo"/>
+              )}
+              {form.goalType==="luoghi_diversi"&&(
+                <div style={{marginBottom:10}}>
+                  <label style={{fontSize:13,color:B.dark,display:"block",marginBottom:6,fontWeight:600}}>Luoghi da visitare (seleziona)</label>
+                  {places.map(p=>(<label key={p.id} style={{display:"inline-flex",alignItems:"center",gap:6,marginRight:10,marginBottom:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={(form.goalPlaces||[]).includes(p.id)} onChange={e=>{const c=form.goalPlaces||[];f("goalPlaces",e.target.checked?[...c,p.id]:c.filter(x=>x!==p.id));}}/>{p.emoji} {p.name}</label>))}
+                </div>
+              )}
+              <Input label="Note / descrizione" value={form.goalNotes||""} onChange={e=>f("goalNotes",e.target.value)} placeholder="opzionale"/>
+              <Btn accent onClick={()=>{if(!form.goalType)return;addItem(setWalkGoals,{type:form.goalType,target:form.goalTarget,places:form.goalPlaces,notes:form.goalNotes,done:false,createdAt:today()});}}>+ Aggiungi obiettivo</Btn>
+            </Card>
+
+            {walkGoals.length===0&&<Empty msg="Nessun obiettivo impostato"/>}
+            {walkGoals.map(g=>{
+              const typeLabels={"km_week":"🏃 Km/settimana","giri_week":"🔁 Giri/settimana","luoghi_diversi":"📍 Luoghi da visitare","posto_nuovo":"🌍 Posti nuovi","durata":"⏱ Minuti/settimana","custom":"✏️ Personalizzato"};
+              return(<Card key={g.id} style={{opacity:g.done?0.7:1}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <p style={{fontWeight:700,margin:0,color:B.text}}>{typeLabels[g.type]||g.type}</p>
+                      {g.done&&<Tag color="success">✓ Completato</Tag>}
+                    </div>
+                    {g.target&&<p style={{fontSize:14,color:B.dark,margin:"0 0 4px"}}>Target: <strong>{g.target}</strong></p>}
+                    {g.places&&g.places.length>0&&<div style={{marginBottom:4}}>{g.places.map(pid=>{const p=places.find(x=>x.id===pid);return p?<Tag key={pid} color="info">{p.emoji} {p.name}</Tag>:null;})}</div>}
+                    {g.notes&&<p style={{fontSize:13,color:"#64748b",margin:0}}>{g.notes}</p>}
+                  </div>
+                  <div style={{display:"flex",gap:4,marginLeft:8}}>
+                    <Btn small onClick={()=>setWalkGoals(p=>p.map(x=>x.id===g.id?{...x,done:!x.done}:x))}>{g.done?"Riapri":"✓ Fatto"}</Btn>
+                    <Btn small danger onClick={()=>delItem(setWalkGoals,g.id)}>✕</Btn>
+                  </div>
+                </div>
+              </Card>);
+            })}
+          </div>
+        )}
+
+        {/* ADDESTRAMENTO */}
+        {section==="obiettivi"&&obiSection==="addestramento"&&(
+          <div>
+            <button onClick={()=>setObiSection(null)} style={{background:B.bg,border:`1px solid ${B.border}`,borderRadius:10,padding:"6px 14px",cursor:"pointer",fontSize:13,fontWeight:600,color:B.dark,marginBottom:14}}>← Obiettivi & Training</button>
+
+            {/* Progress bar comandi */}
+            {(()=>{
+              const appresi=training.filter(t=>t.status==="appreso").length;
+              const inCorso=training.filter(t=>t.status==="in corso").length;
+              const pct=Math.round((appresi/COMANDI_BASE.length)*100);
+              return(
+                <Card style={{background:"linear-gradient(135deg,#ede9fe,#ddd6fe)",border:"1px solid #c4b5fd",marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <p style={{fontWeight:700,margin:0,color:"#7C3AED"}}>🎓 Progressi addestramento</p>
+                    <span style={{fontWeight:800,fontSize:18,color:"#7C3AED"}}>{pct}%</span>
+                  </div>
+                  <div style={{height:10,background:"rgba(255,255,255,0.5)",borderRadius:5,overflow:"hidden",marginBottom:10}}>
+                    <div style={{height:"100%",width:`${pct}%`,background:"#7C3AED",borderRadius:5,transition:"width 0.5s"}}/>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    {[{l:"Appresi",v:appresi,c:"#166534",bg:"#dcfce7"},{l:"In corso",v:inCorso,c:"#854d0e",bg:"#fef9c3"},{l:"Da iniziare",v:COMANDI_BASE.length-appresi-inCorso,c:"#475569",bg:"#f1f5f9"}].map(c=>(<div key={c.l} style={{flex:1,background:c.bg,borderRadius:8,padding:"6px",textAlign:"center"}}><p style={{fontSize:16,fontWeight:800,margin:0,color:c.c}}>{c.v}</p><p style={{fontSize:10,color:c.c,margin:0,fontWeight:600}}>{c.l}</p></div>))}
+                  </div>
+                </Card>
+              );
+            })()}
+
+            {/* Comandi list */}
+            {COMANDI_BASE.map(cmd=>{
+              const t=training.find(x=>x.commandId===cmd.id)||{commandId:cmd.id,status:"da iniziare",sessions:[]};
+              const sessions=trainingSessions.filter(s=>s.commandId===cmd.id);
+              const [expanded,setExpanded]=useState(false);
+              const statusColors={"appreso":{bg:"#dcfce7",text:"#166534",border:"#86efac"},"in corso":{bg:"#fef9c3",text:"#854d0e",border:"#fde047"},"da iniziare":{bg:"#f1f5f9",text:"#475569",border:"#cbd5e1"}};
+              const sc=statusColors[t.status]||statusColors["da iniziare"];
+              const diff=Array(cmd.difficolta).fill("⭐").join("")+Array(4-cmd.difficolta).fill("☆").join("");
+              return(
+                <Card key={cmd.id} style={{border:`1.5px solid ${t.status==="appreso"?"#86efac":t.status==="in corso"?"#fde047":B.border}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                    <div style={{flex:1,cursor:"pointer"}} onClick={()=>setExpanded(e=>!e)}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={{fontSize:22}}>{cmd.emoji}</span>
+                        <div>
+                          <p style={{fontWeight:700,margin:0,color:B.text,fontSize:16}}>{cmd.nome}</p>
+                          <p style={{fontSize:12,color:"#64748b",margin:0}}>{diff} · {sessions.length} sessioni</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:10,background:sc.bg,color:sc.text,border:`1px solid ${sc.border}`}}>{t.status}</span>
+                    </div>
+                  </div>
+
+                  {expanded&&(
+                    <div style={{marginTop:10,borderTop:`1px solid ${B.border}`,paddingTop:10}}>
+                      <div style={{background:B.bg,borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 4px"}}>📖 Come insegnarlo</p>
+                        <p style={{fontSize:13,color:"#334155",margin:0,lineHeight:1.5}}>{cmd.come}</p>
+                      </div>
+
+                      {/* Cambia stato */}
+                      <div style={{display:"flex",gap:6,marginBottom:10}}>
+                        {["da iniziare","in corso","appreso"].map(s=>(<button key={s} onClick={()=>{const existing=training.find(x=>x.commandId===cmd.id);if(existing){setTraining(p=>p.map(x=>x.commandId===cmd.id?{...x,status:s}:x));}else{setTraining(p=>[...p,{commandId:cmd.id,status:s,sessions:[]}]);}}} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1.5px solid ${t.status===s?B.mid:B.border}`,background:t.status===s?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600,color:t.status===s?B.dark:"#64748b"}}>{s==="da iniziare"?"⬜ Da iniziare":s==="in corso"?"🔄 In corso":"✅ Appreso"}</button>))}
+                      </div>
+
+                      {/* Log sessione */}
+                      <div style={{background:"#f8fbff",borderRadius:10,padding:"10px 12px"}}>
+                        <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 8px"}}>➕ Aggiungi sessione</p>
+                        <Input label="Data" type="date" value={form[`ts_date_${cmd.id}`]||today()} onChange={e=>f(`ts_date_${cmd.id}`,e.target.value)}/>
+                        <div style={{marginBottom:8}}>
+                          <label style={{fontSize:12,color:B.dark,display:"block",marginBottom:4,fontWeight:600}}>Risultato</label>
+                          <div style={{display:"flex",gap:6}}>
+                            {["✅ Riuscito","🔄 Parziale","❌ Da rifare"].map(r=>(<button key={r} onClick={()=>f(`ts_result_${cmd.id}`,r)} style={{flex:1,padding:"6px 4px",borderRadius:8,border:`1.5px solid ${form[`ts_result_${cmd.id}`]===r?B.mid:B.border}`,background:form[`ts_result_${cmd.id}`]===r?B.bg:"white",cursor:"pointer",fontSize:11,fontWeight:600}}>{r}</button>))}
+                          </div>
+                        </div>
+                        <Input label="Note" value={form[`ts_note_${cmd.id}`]||""} onChange={e=>f(`ts_note_${cmd.id}`,e.target.value)} placeholder="es. Ci vuole ancora il premio..."/>
+                        <Btn small accent onClick={()=>{addItem(setTrainingSessions,{commandId:cmd.id,date:form[`ts_date_${cmd.id}`]||today(),result:form[`ts_result_${cmd.id}`]||"🔄 Parziale",notes:form[`ts_note_${cmd.id}`]||""});f(`ts_date_${cmd.id}`,null);f(`ts_result_${cmd.id}`,null);f(`ts_note_${cmd.id}`,null);}}>Salva sessione</Btn>
+                      </div>
+
+                      {/* Sessioni passate */}
+                      {sessions.length>0&&(
+                        <div style={{marginTop:10}}>
+                          <p style={{fontSize:12,fontWeight:700,color:B.dark,margin:"0 0 6px"}}>📋 Sessioni ({sessions.length})</p>
+                          {[...sessions].sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,5).map(s=>(
+                            <div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderTop:`1px solid ${B.bg}`,fontSize:13}}>
+                              <span style={{color:"#64748b"}}>{fmt(s.date)}</span>
+                              <span style={{fontWeight:600}}>{s.result}</span>
+                              {s.notes&&<span style={{color:"#94a3b8",fontSize:12,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.notes}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
             })}
           </div>
         )}
